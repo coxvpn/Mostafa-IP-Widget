@@ -20,17 +20,28 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller
+          pip install -r requirements.txt
+          # PyInstaller's ready-made launcher is the thing antivirus programs most often
+          # flag. Building it from source here gives every release a unique launcher.
+          pip install --no-binary pyinstaller pyinstaller
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Building PyInstaller from source failed; using the ready-made one."
+            pip install pyinstaller
+          }
+          pyinstaller --version
 
       - name: Run tests
         run: python -m unittest discover -s . -p "test_*.py" -v
 
       - name: Build the program
         run: >
-          pyinstaller --noconfirm --clean --windowed --name MyIPWidget
+          pyinstaller --noconfirm --clean --windowed --noupx --name MyIPWidget
+          --hidden-import psutil
           --icon assets/images/icon.ico
+          --version-file version_info.txt
           --add-data "assets;assets"
           --collect-submodules pystray
           main.py
@@ -38,23 +49,10 @@ jobs:
       - name: Check the built program
         shell: pwsh
         run: |
-          $stdOut = New-TemporaryFile
-          $stdErr = New-TemporaryFile
-          
-          $p = Start-Process -FilePath "dist\MyIPWidget\MyIPWidget.exe" `
-               -ArgumentList "--selftest" `
-               -Wait -PassThru `
-               -RedirectStandardOutput $stdOut `
-               -RedirectStandardError $stdErr
-               
-          Write-Host "--- Standard Output ---"
-          Get-Content $stdOut
-          Write-Host "--- Standard Error ---"
-          Get-Content $stdErr
-          
-          if ($p.ExitCode -ne 0) {
-            throw "Self-test failed with exit code $($p.ExitCode)"
-          }
+          $env:MYIP_SELFTEST_REPORT = Join-Path $PWD "selftest.txt"
+          $p = Start-Process -FilePath "dist\MyIPWidget\MyIPWidget.exe" -ArgumentList "--selftest" -Wait -PassThru
+          if (Test-Path $env:MYIP_SELFTEST_REPORT) { Get-Content $env:MYIP_SELFTEST_REPORT }
+          if ($p.ExitCode -ne 0) { throw "Self-test failed with exit code $($p.ExitCode)" }
 
       - name: Build the installer
         shell: pwsh
