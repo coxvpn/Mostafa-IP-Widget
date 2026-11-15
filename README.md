@@ -34,7 +34,8 @@ Mostafa-IP Widget
 
 <img width="591" height="1280" alt="1" src="https://github.com/user-attachments/assets/9e0a3683-810f-4308-b577-d415711659c8" />
 
-<img width="591" height="1280" alt="1" src="https://github.com/user-attachments/assets/e110e7d7-6aff-4c63-8d88-8ef82e39e355" />
+<img width="558" height="424" alt="2" src="https://github.com/user-attachments/assets/6bfcc017-99c3-42d2-959b-7b294e4e82f9" />
+
 
 
 
