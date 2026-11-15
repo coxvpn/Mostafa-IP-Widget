@@ -14,6 +14,7 @@ class MainActivity : Activity() {
     private lateinit var countryView: TextView
     private lateinit var ipView: TextView
     private lateinit var detailView: TextView
+    private lateinit var refreshButton: Button
     private var currentIp: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,7 +26,8 @@ class MainActivity : Activity() {
         ipView = findViewById(R.id.ip)
         detailView = findViewById(R.id.detail)
 
-        findViewById<Button>(R.id.refresh).setOnClickListener { refresh() }
+        refreshButton = findViewById(R.id.refresh)
+        refreshButton.setOnClickListener { refresh() }
         ipView.setOnClickListener { copyIp() }
 
         val cached = IpLookup.load(this)
@@ -43,11 +45,17 @@ class MainActivity : Activity() {
 
     private fun refresh() {
         val app = applicationContext
+        refreshButton.isEnabled = false
         Thread {
-            val info = IpLookup.fetch()
+            val info = if (NetWatch.isOnline(app)) IpLookup.fetch() else null
             if (info != null) IpLookup.save(app, info)
             val display = if (info != null) IpLookup.describe(app, info) else IpLookup.offline(app)
-            runOnUiThread { if (!isFinishing) show(display) }
+            runOnUiThread {
+                if (!isFinishing) {
+                    show(display)
+                    refreshButton.isEnabled = true
+                }
+            }
             IpWidget.render(app, display)
         }.start()
     }

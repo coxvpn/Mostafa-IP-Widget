@@ -23,7 +23,7 @@ data class Display(
 )
 
 object IpLookup {
-    private const val TIMEOUT_MS = 6000
+    private const val TIMEOUT_MS = 4000
     private const val PIRATE = "🏴‍☠️"
     private val IP_SHAPE = Regex("^[0-9a-fA-F:.]{2,45}$")
 
@@ -116,8 +116,33 @@ object IpLookup {
         return null
     }
 
+    /** One request that returns both the IP and its location (faster than two). */
+    private fun lookupSelf(): IpInfo? {
+        val body = httpGet("https://ipwho.is/") ?: return null
+        try {
+            val d = JSONObject(body)
+            if (!d.optBoolean("success", false)) return null
+            val ip = d.optString("ip").trim()
+            if (!IP_SHAPE.matches(ip)) return null
+            val conn = d.optJSONObject("connection")
+            val info = IpInfo(
+                ip,
+                clean(d.optString("country")),
+                cleanCode(d.optString("country_code")),
+                clean(d.optString("city")),
+                clean(conn?.optString("isp")),
+            )
+            return if (info.country.isNotEmpty() || info.code.isNotEmpty()) info else null
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
     /** Current public IP with location, or null when there is no internet. */
     fun fetch(): IpInfo? {
+        val quick = lookupSelf()
+        if (quick != null) return quick
+        // that service is down: ask for the IP and the location separately, from other services
         val ip = fetchIp() ?: return null
         return lookup(ip) ?: IpInfo(ip, "", "", "", "")
     }

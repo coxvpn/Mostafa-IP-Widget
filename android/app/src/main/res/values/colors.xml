@@ -3,4 +3,5 @@
     <color name="widget_bg">#D9FFFFFF</color>
     <color name="widget_text">#111111</color>
     <color name="widget_dim">#5C5C5C</color>
+    <color name="widget_btn">#1F000000</color>
 </resources>
