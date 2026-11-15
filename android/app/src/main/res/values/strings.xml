@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MyIP Widget</string>
+    <string name="widget_description">Shows your public IP address and country</string>
+    <string name="checking">Checking...</string>
+    <string name="no_internet">No Internet</string>
+    <string name="unknown_location">Unknown location</string>
+    <string name="refresh">Refresh now</string>
+    <string name="copied">IP address copied</string>
+    <string name="hint">Tap the IP address to copy it.\nTo add the widget: long-press an empty spot on your home screen, choose Widgets, then MyIP Widget.\nTap the widget to refresh it.</string>
+</resources>

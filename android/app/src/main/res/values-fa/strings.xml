@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ویجت آی‌پی</string>
+    <string name="widget_description">نمایش آی‌پی و کشور شما</string>
+    <string name="checking">در حال بررسی...</string>
+    <string name="no_internet">اینترنت وصل نیست</string>
+    <string name="unknown_location">مکان نامشخص</string>
+    <string name="refresh">به‌روزرسانی</string>
+    <string name="copied">آی‌پی کپی شد</string>
+    <string name="hint">برای کپی کردن، روی آی‌پی بزنید.\nبرای افزودن ویجت: روی یک جای خالی صفحه‌ی اصلی گوشی نگه دارید، «ویجت‌ها» و بعد «ویجت آی‌پی» را انتخاب کنید.\nبا زدن روی ویجت، به‌روز می‌شود.</string>
+</resources>
