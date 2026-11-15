@@ -47,8 +47,37 @@ HINT = "Right-click: menu\nDouble-click: copy IP"
 CREDIT_FA = "سازنده: مصطفی ماندگاری"
 
 
+def draw_globe(offline=False):
+    """Draws the globe icons in code - used only if the PNG files are not there."""
+    from PIL import ImageDraw
+    size, out = 1024, 128
+    body, line = ((100, 108, 120, 255), (225, 228, 234, 235)) if offline else \
+                 ((37, 99, 235, 255), (255, 255, 255, 235))
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    margin, width, c = 40, 30, size // 2
+    r = c - margin
+    box = (margin, margin, size - margin, size - margin)
+    d.ellipse(box, fill=body)
+    d.ellipse(box, outline=line, width=width)
+    d.line((margin, c, size - margin, c), fill=line, width=width)
+    d.line((c, margin, c, size - margin), fill=line, width=width)
+    d.ellipse((c - r // 2, margin, c + r // 2, size - margin), outline=line, width=width)
+    half = int((r * r - (r // 2) ** 2) ** 0.5)
+    for dy in (-r // 2, r // 2):
+        d.line((c - half, c + dy, c + half, c + dy), fill=line, width=width)
+    if offline:
+        a, b = (175, 175), (size - 175, size - 175)
+        d.line((a, b), fill=(255, 255, 255, 255), width=170)
+        d.line((a, b), fill=(220, 38, 38, 255), width=100)
+    return img.resize((out, out), Image.LANCZOS)
+
+
 def load_icon(path):
-    return Image.open(path).convert("RGBA")
+    try:
+        return Image.open(path).convert("RGBA")
+    except Exception:
+        return draw_globe(offline=(path == OFFLINE_ICON))
 
 
 def load_flag_image(code):
@@ -517,16 +546,42 @@ class App:
 
 
 def selftest():
-    """Used by the build: checks that every needed file and module is packaged."""
-    needed = [ICON_FILE, GLOBE_ICON, OFFLINE_ICON, os.path.join(FLAG_DIR, "US.png")]
-    missing = [path for path in needed if not os.path.isfile(path)]
-    load_flag_image("US")
+    """Used by the build: checks that the packaged program has everything it needs.
+
+    Writes what it finds to the file named in MYIP_SELFTEST_REPORT (the build prints it).
+    """
+    problems, notes = [], []
+    for path in (ICON_FILE, os.path.join(FLAG_DIR, "US.png")):
+        if not os.path.isfile(path):
+            problems.append(f"missing file: {path}")
+    for path in (GLOBE_ICON, OFFLINE_ICON):
+        if not os.path.isfile(path):
+            notes.append(f"note: {os.path.basename(path)} not found, the built-in drawing is used")
+    for module in ("requests", "PIL.ImageTk", "pystray", "psutil"):
+        try:
+            __import__(module)
+        except Exception as exc:
+            problems.append(f"cannot import {module}: {exc!r}")
     try:
-        import psutil  # the speed meter needs it inside the packaged program
+        load_flag_image("US")
+        load_icon(GLOBE_ICON)
+        load_icon(OFFLINE_ICON)
+    except Exception as exc:
+        problems.append(f"cannot load icons: {exc!r}")
+    try:
+        import psutil
         psutil.net_io_counters(pernic=True)
-    except Exception:
-        return 1
-    return 1 if missing else 0
+    except Exception as exc:
+        problems.append(f"cannot read network counters: {exc!r}")
+
+    report = os.environ.get("MYIP_SELFTEST_REPORT")
+    if report:
+        try:
+            with open(report, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(problems + notes + ["RESULT: " + ("FAILED" if problems else "OK")]))
+        except OSError:
+            pass
+    return 1 if problems else 0
 
 
 def enable_dpi_awareness():
