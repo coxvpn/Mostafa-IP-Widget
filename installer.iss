@@ -1,13 +1,17 @@
 ; Inno Setup script - builds MyIPWidget-Setup.exe from the PyInstaller output in dist\MyIPWidget
 #define AppName "MyIP Widget"
-#define AppVersion "0.2.0"
+#define AppVersion "0.2.2"
 #define AppExe "MyIPWidget.exe"
 
 [Setup]
 AppId={{D5FE5497-F778-4CD9-90BC-1B35C2F9D6DC}
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppPublisher=MyIP Widget
+AppPublisher=Mostafa Mandegari
+AppCopyright=Copyright (c) Mostafa Mandegari
+VersionInfoVersion={#AppVersion}
+VersionInfoCompany=Mostafa Mandegari
+VersionInfoDescription={#AppName} Setup
 DefaultDirName={autopf}\MyIPWidget
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes

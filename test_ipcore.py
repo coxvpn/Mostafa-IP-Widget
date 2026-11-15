@@ -57,13 +57,21 @@ class SettingsTests(unittest.TestCase):
     def test_bad_values_are_replaced(self):
         with open(self.path, "w") as fh:
             json.dump({"opacity": "abc", "interval": 1, "x": True, "show_details": "yes",
-                       "unknown": 1}, fh)
+                       "pinned": "yes", "unknown": 1}, fh)
         s = ipcore.Settings(self.path).load()
         self.assertEqual(s.get("opacity"), 0.7)
         self.assertEqual(s.get("interval"), 5)  # clamped
         self.assertIsNone(s.get("x"))
         self.assertTrue(s.get("show_details"))
+        self.assertFalse(s.get("pinned"))
         self.assertNotIn("unknown", s.data)
+
+    def test_popup_is_the_default(self):
+        self.assertFalse(ipcore.Settings(self.path).load().get("pinned"))
+
+    def test_pinned_is_remembered(self):
+        ipcore.Settings(self.path).set("pinned", True)
+        self.assertTrue(ipcore.Settings(self.path).load().get("pinned"))
 
     def test_corrupt_file_is_ignored(self):
         with open(self.path, "w") as fh:
@@ -194,6 +202,60 @@ class MiscTests(unittest.TestCase):
 
     def test_startup_command_is_quoted(self):
         self.assertTrue(ipcore.startup_command().startswith('"'))
+
+
+class SpeedTests(unittest.TestCase):
+    def meter(self, readings, times):
+        readings, times = iter(readings), iter(times)
+        return ipcore.SpeedMeter(reader=lambda: next(readings), clock=lambda: next(times))
+
+    def test_first_reading_is_zero(self):
+        m = self.meter([{"Wi-Fi": (0, 0)}], [0.0])
+        self.assertEqual(m.update(), (0.0, 0.0))
+
+    def test_speed_is_bytes_per_second(self):
+        m = self.meter([{"Wi-Fi": (0, 0)}, {"Wi-Fi": (2000, 10000)}], [0.0, 2.0])
+        m.update()
+        down, up = m.update()
+        self.assertEqual((down, up), (5000.0, 1000.0))
+
+    def test_loopback_is_ignored(self):
+        m = self.meter([{"Loopback Pseudo-Interface 1": (0, 0), "lo": (0, 0), "Wi-Fi": (0, 0)},
+                        {"Loopback Pseudo-Interface 1": (9e9, 9e9), "lo": (9e9, 9e9),
+                         "Wi-Fi": (100, 300)}], [0.0, 1.0])
+        m.update()
+        self.assertEqual(m.update(), (300.0, 100.0))
+
+    def test_vpn_traffic_is_not_counted_twice(self):
+        m = self.meter([{"Wi-Fi": (0, 0), "VPN": (0, 0)},
+                        {"Wi-Fi": (1100, 5200), "VPN": (1000, 5000)}], [0.0, 1.0])
+        m.update()
+        self.assertEqual(m.update(), (5200.0, 1100.0))
+
+    def test_counter_reset_does_not_go_negative(self):
+        m = self.meter([{"Wi-Fi": (5000, 5000)}, {"Wi-Fi": (10, 10)}], [0.0, 1.0])
+        m.update()
+        self.assertEqual(m.update(), (0.0, 0.0))
+
+    def test_new_adapter_is_skipped_once(self):
+        m = self.meter([{"Wi-Fi": (0, 0)}, {"Wi-Fi": (0, 0), "USB": (999, 999)}], [0.0, 1.0])
+        m.update()
+        self.assertEqual(m.update(), (0.0, 0.0))
+
+    def test_reader_returning_nothing(self):
+        m = self.meter([{}, {}], [0.0, 1.0])
+        m.update()
+        self.assertEqual(m.update(), (0.0, 0.0))
+
+    def test_format(self):
+        self.assertEqual(ipcore.format_speed(0), "0 B/s")
+        self.assertEqual(ipcore.format_speed(999), "999 B/s")
+        self.assertEqual(ipcore.format_speed(1536), "1.5 KB/s")
+        self.assertEqual(ipcore.format_speed(5 * 1024 ** 2), "5.00 MB/s")
+        self.assertEqual(ipcore.format_speed(-5), "0 B/s")
+
+    def test_real_counters_are_readable(self):
+        self.assertIsInstance(ipcore.read_counters(), dict)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,15 @@
-"""MyIP Widget - shows your public IP, country and provider on the desktop and in the tray."""
+"""MyIP Widget - shows your public IP, country and provider from the tray icon.
+
+By default nothing sits on the desktop: click the tray icon and a small pop-up
+appears next to the taskbar. "Keep on desktop" in the menu gives the old
+always-visible widget back.
+"""
 import ctypes
 import os
 import queue
 import re
 import sys
+import time
 import tkinter as tk
 
 from PIL import Image, ImageTk
@@ -27,25 +33,34 @@ def resource_path(relative_path):
 
 IMG_DIR = resource_path(os.path.join("assets", "images"))
 FLAG_DIR = os.path.join(IMG_DIR, "flags")
-PIRATE_FLAG = os.path.join(IMG_DIR, "pirate_flag.png")
+GLOBE_ICON = os.path.join(IMG_DIR, "globe.png")          # checking / unknown country
+OFFLINE_ICON = os.path.join(IMG_DIR, "no_internet.png")  # no connection
 ICON_FILE = os.path.join(IMG_DIR, "icon.ico")
 
 FLAG_SIZE = 56
 TEXT_WIDTH = 24  # characters; keeps the window a stable size
 OPACITY_CHOICES = (100, 85, 70, 50, 30)
+AUTOHIDE_MS = 10000      # pop-up closes by itself after this long if the mouse is not on it
+FOCUS_GRACE = 0.4        # seconds after showing in which losing focus is ignored
+REOPEN_GUARD = 0.7       # a tray click this soon after the pop-up closed itself only closes it
 HINT = "Right-click: menu\nDouble-click: copy IP"
+CREDIT_FA = "سازنده: مصطفی ماندگاری"
+
+
+def load_icon(path):
+    return Image.open(path).convert("RGBA")
 
 
 def load_flag_image(code):
-    """Return a PIL image of the country flag (the pirate flag if unknown)."""
+    """Return a PIL image of the country flag (a plain globe if unknown)."""
     if re.fullmatch(r"[A-Z]{2}", code or ""):
         path = os.path.join(FLAG_DIR, f"{code}.png")
         if os.path.isfile(path):
             try:
-                return Image.open(path).convert("RGBA")
+                return load_icon(path)
             except Exception:
                 pass
-    return Image.open(PIRATE_FLAG).convert("RGBA")
+    return load_icon(GLOBE_ICON)
 
 
 def virtual_screen(root):
@@ -59,6 +74,19 @@ def virtual_screen(root):
     return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
 
 
+def work_area(root):
+    """(left, top, right, bottom) of the main screen without the taskbar."""
+    if ipcore.IS_WINDOWS:
+        try:
+            from ctypes import wintypes
+            rect = wintypes.RECT()
+            if ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0):
+                return rect.left, rect.top, rect.right, rect.bottom
+        except Exception:
+            pass
+    return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
+
+
 class App:
     def __init__(self):
         self.settings = Settings().load()
@@ -67,8 +95,16 @@ class App:
         self.checking = True
         self.closing = False
         self._flash_job = None
+        self._autohide_job = None
+        self._menu_open = False
+        self._shown_at = 0.0
+        self._last_focus_hide = 0.0
         self._drag = (0, 0)
         self.tray = None
+        self.speed = ipcore.SpeedMeter()
+        self._tray_base_title = APP_NAME
+        self._tray_title_shown = None
+        self._speed_line = self._speed_text(0, 0)
 
         self.root = tk.Tk()
         self.root.withdraw()
@@ -83,22 +119,45 @@ class App:
         self._build_colors()
         self._build_widgets()
         self._build_menu()
-        self._place_window()
 
         self.root.attributes("-topmost", True)
         self.root.attributes("-alpha", self.settings.get("opacity"))
-        if self.settings.get("visible"):
-            self.root.deiconify()
+        self.root.bind("<FocusOut>", self._on_focus_out)
 
         self._render()
         self._start_tray()
+
+        if self.pinned:          # normally the widget stays hidden until the tray icon is clicked
+            self.show_window()
 
         self.monitor = IPMonitor(
             on_update=lambda state: self.post("data", state),
             interval_fn=lambda: self.settings.get("interval"),
         )
         self.monitor.start()
-        self.root.after(200, self._process_queue)
+        self.root.after(100, self._process_queue)
+        self.speed.update()  # first reading; real speeds appear a second later
+        self.root.after(1000, self._speed_tick)
+
+    @property
+    def pinned(self):
+        return bool(self.settings.get("pinned"))
+
+    @staticmethod
+    def _speed_text(down, up):
+        return f"↓ {ipcore.format_speed(down)}    ↑ {ipcore.format_speed(up)}"
+
+    def _speed_tick(self):
+        if self.closing:
+            return
+        try:
+            down, up = self.speed.update()
+            self._speed_line = self._speed_text(down, up)
+            self.speed_lbl.config(text=self._speed_line)
+            self._apply_tray_title()
+        except Exception:
+            ipcore.log.exception("Could not update the network speed")
+        self.root.after(1000, self._speed_tick)
 
     # ------------------------------------------------------------------ UI
     def _build_colors(self):
@@ -123,14 +182,21 @@ class App:
         self.detail_lbl = tk.Label(self.frame, fg=self.dim, font=("Segoe UI", 8),
                                    wraplength=int(190 * scale), justify="center", **label_args)
 
+        self.speed_lbl = tk.Label(self.frame, fg=self.fg, font=("Segoe UI", 9),
+                                  text=self._speed_text(0, 0), **label_args)
+        self.credit_lbl = tk.Label(self.frame, fg=self.dim, font=("Segoe UI", 8),
+                                   text=CREDIT_FA, **label_args)
+
         self.flag_lbl.grid(row=0, column=0)
         self.country_lbl.grid(row=1, column=0)
         self.ip_lbl.grid(row=2, column=0)
         self.detail_lbl.grid(row=3, column=0)
+        self.speed_lbl.grid(row=4, column=0, pady=(4, 0))
+        self.credit_lbl.grid(row=5, column=0, pady=(4, 0))
 
         # Not bound on the root window itself: its events would fire twice.
-        for widget in (self.frame, self.flag_lbl, self.country_lbl,
-                       self.ip_lbl, self.detail_lbl):
+        for widget in (self.frame, self.flag_lbl, self.country_lbl, self.ip_lbl,
+                       self.detail_lbl, self.speed_lbl, self.credit_lbl):
             widget.bind("<ButtonPress-1>", self._drag_start)
             widget.bind("<B1-Motion>", self._drag_move)
             widget.bind("<ButtonRelease-1>", self._drag_end)
@@ -145,6 +211,7 @@ class App:
 
     def _build_menu(self):
         self.details_var = tk.BooleanVar(value=self.settings.get("show_details"))
+        self.pin_var = tk.BooleanVar(value=self.pinned)
         self.startup_var = tk.BooleanVar(value=ipcore.is_startup_enabled())
         self.opacity_var = tk.IntVar(value=self._nearest_opacity())
 
@@ -159,11 +226,13 @@ class App:
             opacity_menu.add_radiobutton(label=f"{pct}%", value=pct, variable=self.opacity_var,
                                          command=self._apply_opacity)
         self.menu.add_cascade(label="Opacity", menu=opacity_menu)
+        self.menu.add_checkbutton(label="Keep on desktop", variable=self.pin_var,
+                                  command=self._toggle_pin)
         if ipcore.IS_WINDOWS:
             self.menu.add_checkbutton(label="Start with Windows", variable=self.startup_var,
                                       command=self._toggle_startup)
         self.menu.add_separator()
-        self.menu.add_command(label="Hide to tray", command=self.hide_window)
+        self.menu.add_command(label="Close", command=self.hide_window)
         self.menu.add_command(label="Quit", command=self.quit)
 
     def _nearest_opacity(self):
@@ -171,46 +240,104 @@ class App:
         return min(OPACITY_CHOICES, key=lambda pct: abs(pct - current))
 
     def _show_menu(self, event):
+        self._menu_open = True
         try:
             self.menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.menu.grab_release()
+            self._menu_open = False
 
     # -------------------------------------------------------------- window
+    def _is_visible(self):
+        return self.root.state() != "withdrawn"
+
     def _place_window(self):
         self.root.update_idletasks()
         width, height = self.root.winfo_reqwidth(), self.root.winfo_reqheight()
-        left, top, vw, vh = virtual_screen(self.root)
-        x, y = self.settings.get("x"), self.settings.get("y")
-        if x is None or y is None:
-            x, y = left + vw - width - 24, top + 60
-        x = max(left, min(x, left + vw - width))
-        y = max(top, min(y, top + vh - height))
+        if self.pinned:
+            left, top, vw, vh = virtual_screen(self.root)
+            x, y = self.settings.get("x"), self.settings.get("y")
+            if x is None or y is None:
+                x, y = left + vw - width - 24, top + 60
+            x = max(left, min(x, left + vw - width))
+            y = max(top, min(y, top + vh - height))
+        else:  # pop-up: bottom-right corner, just above the taskbar / tray
+            _, _, right, bottom = work_area(self.root)
+            x, y = right - width - 12, bottom - height - 12
         self.root.geometry(f"+{x}+{y}")
 
     def _drag_start(self, event):
         self._drag = (event.x_root - self.root.winfo_x(), event.y_root - self.root.winfo_y())
 
     def _drag_move(self, event):
+        if not self.pinned:
+            return  # the pop-up always stays next to the taskbar
         dx, dy = self._drag
         self.root.geometry(f"+{event.x_root - dx}+{event.y_root - dy}")
 
     def _drag_end(self, event):
+        if not self.pinned:
+            return
         self.settings.set("x", self.root.winfo_x(), save=False)
         self.settings.set("y", self.root.winfo_y())
 
     def show_window(self):
+        self._place_window()
         self.root.deiconify()
         self.root.attributes("-topmost", True)
-        self.settings.set("visible", True)
+        self.root.lift()
+        self._shown_at = time.time()
+        if not self.pinned:
+            try:
+                self.root.focus_force()  # so it can notice when you click somewhere else
+            except tk.TclError:
+                pass
+            self._schedule_autohide()
 
-    def hide_window(self):
+    def hide_window(self, from_focus=False):
+        self._cancel_autohide()
         self.root.withdraw()
-        self.settings.set("visible", False)
+        if from_focus:
+            self._last_focus_hide = time.time()
 
     def toggle_window(self):
-        if self.root.state() == "withdrawn":
+        if self._is_visible():
+            self.hide_window()
+        elif not self.pinned and time.time() - self._last_focus_hide < REOPEN_GUARD:
+            return  # this click is what just closed the pop-up; don't reopen it
+        else:
             self.show_window()
+
+    def _on_focus_out(self, event):
+        if event.widget is not self.root:
+            return
+        if self.pinned or self._menu_open or not self._is_visible():
+            return
+        if time.time() - self._shown_at < FOCUS_GRACE:
+            return
+        self.hide_window(from_focus=True)
+
+    def _schedule_autohide(self):
+        self._cancel_autohide()
+        self._autohide_job = self.root.after(AUTOHIDE_MS, self._autohide_tick)
+
+    def _cancel_autohide(self):
+        if self._autohide_job:
+            try:
+                self.root.after_cancel(self._autohide_job)
+            except tk.TclError:
+                pass
+            self._autohide_job = None
+
+    def _autohide_tick(self):
+        self._autohide_job = None
+        if self.pinned or not self._is_visible():
+            return
+        px, py = self.root.winfo_pointerxy()
+        x, y = self.root.winfo_rootx(), self.root.winfo_rooty()
+        inside = x <= px < x + self.root.winfo_width() and y <= py < y + self.root.winfo_height()
+        if inside or self._menu_open:
+            self._schedule_autohide()  # still being used
         else:
             self.hide_window()
 
@@ -218,6 +345,13 @@ class App:
     def _toggle_details(self):
         self.settings.set("show_details", bool(self.details_var.get()))
         self._render()
+
+    def _toggle_pin(self):
+        self.settings.set("pinned", bool(self.pin_var.get()))
+        if self.pinned:
+            self.show_window()
+        else:
+            self.hide_window()
 
     def _apply_opacity(self):
         value = self.opacity_var.get() / 100.0
@@ -233,21 +367,26 @@ class App:
         self.startup_var.set(not ipcore.is_startup_enabled())
         self._toggle_startup()
 
+    def _on_tray_pin(self):
+        self.pin_var.set(not self.pinned)
+        self._toggle_pin()
+
     # ------------------------------------------------------------- content
     def _render(self):
         state = self.state
         if self.checking:
-            country, ip, detail, code = "Checking...", "", "", ""
+            country, ip, detail = "Checking...", "", ""
+            image = load_icon(GLOBE_ICON)
         elif not state["online"]:
-            country, ip, detail, code = "No Internet", "", "", ""
+            country, ip, detail = "No Internet", "", ""
+            image = load_icon(OFFLINE_ICON)
         else:
             country = state["country"] or "Unknown location"
             ip = state["ip"]
             detail = " - ".join(p for p in (state["city"], state["isp"]) if p)
-            code = state["code"]
+            image = load_flag_image(state["code"])
 
-        image = load_flag_image(code).resize((self.flag_px, self.flag_px), Image.LANCZOS)
-        self._flag_photo = ImageTk.PhotoImage(image)  # keep a reference
+        self._flag_photo = ImageTk.PhotoImage(image.resize((self.flag_px, self.flag_px), Image.LANCZOS))
         self.flag_lbl.config(image=self._flag_photo)
         self.country_lbl.config(text=country)
         self.ip_lbl.config(text=ip)
@@ -257,7 +396,9 @@ class App:
         else:
             self.detail_lbl.grid_remove()
 
-        self._update_tray(code, ip, country)
+        self._update_tray(image, ip, country)
+        if self._is_visible() and not self.pinned:
+            self._place_window()  # the height may have changed
 
     def copy_ip(self):
         ip = self.state.get("ip")
@@ -285,28 +426,45 @@ class App:
             MenuItem("Show / Hide", lambda icon, item: self.post("toggle"), default=True),
             MenuItem("Copy IP address", lambda icon, item: self.post("copy")),
             MenuItem("Refresh now", lambda icon, item: self.post("refresh")),
+            MenuItem("Keep on desktop", lambda icon, item: self.post("pin"),
+                     checked=lambda item: self.pinned),
             MenuItem("Start with Windows", lambda icon, item: self.post("startup"),
                      checked=lambda item: ipcore.is_startup_enabled(),
                      visible=ipcore.IS_WINDOWS),
             pystray.Menu.SEPARATOR,
             MenuItem(f"{APP_NAME} {__version__}", lambda icon, item: None, enabled=False),
+            MenuItem(CREDIT_FA, lambda icon, item: None, enabled=False),
             MenuItem("Quit", lambda icon, item: self.post("quit")),
         )
         try:
-            self.tray = pystray.Icon("MyIPWidget", load_flag_image(""), APP_NAME, menu)
+            self.tray = pystray.Icon("MyIPWidget", load_icon(GLOBE_ICON), APP_NAME, menu)
             self.tray.run_detached()
         except Exception:
             ipcore.log.exception("Could not start the tray icon")
             self.tray = None
 
-    def _update_tray(self, code, ip, country):
+    def _update_tray(self, image, ip, country):
+        self._tray_base_title = f"{ip}  ({country})" if ip else country
         if not self.tray:
             return
         try:
-            self.tray.icon = load_flag_image(code)
-            self.tray.title = f"{ip}  ({country})" if ip else country
+            self.tray.icon = image
         except Exception:
             ipcore.log.exception("Could not update the tray icon")
+        self._apply_tray_title()
+
+    def _apply_tray_title(self):
+        """Tooltip = IP and country, plus the live speed (only touched when the text changes)."""
+        if not self.tray:
+            return
+        title = f"{self._tray_base_title}\n{self._speed_line}"
+        if title == self._tray_title_shown:
+            return
+        try:
+            self.tray.title = title
+            self._tray_title_shown = title
+        except Exception:
+            ipcore.log.exception("Could not update the tray tooltip")
 
     # -------------------------------------------------------------- events
     def post(self, kind, payload=None):
@@ -326,6 +484,8 @@ class App:
                     self.copy_ip()
                 elif kind == "refresh":
                     self.monitor.refresh()
+                elif kind == "pin":
+                    self._on_tray_pin()
                 elif kind == "startup":
                     self._on_tray_startup()
                 elif kind == "quit":
@@ -334,7 +494,7 @@ class App:
         except queue.Empty:
             pass
         if not self.closing:
-            self.root.after(200, self._process_queue)
+            self.root.after(100, self._process_queue)
 
     def _report_error(self, exc, val, tb):
         import traceback
@@ -358,9 +518,14 @@ class App:
 
 def selftest():
     """Used by the build: checks that every needed file and module is packaged."""
-    needed = [ICON_FILE, PIRATE_FLAG, os.path.join(FLAG_DIR, "US.png")]
+    needed = [ICON_FILE, GLOBE_ICON, OFFLINE_ICON, os.path.join(FLAG_DIR, "US.png")]
     missing = [path for path in needed if not os.path.isfile(path)]
     load_flag_image("US")
+    try:
+        import psutil  # the speed meter needs it inside the packaged program
+        psutil.net_io_counters(pernic=True)
+    except Exception:
+        return 1
     return 1 if missing else 0
 
 

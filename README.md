@@ -1,16 +1,23 @@
 # My IP Info Widget
 
+Created by Mostafa Mandegari (مصطفی ماندگاری).
+
 See your public IP address, country, city and internet provider in real time —
 on the desktop and in the system tray (Windows).
 
 ![](screenshots/MyIPWidget-dark.jpg)
 ![](screenshots/MyIPWidget-light.jpg)
 
-## Features (v0.2.0)
+## Features (v0.2.2)
 
 - Country flag, IP address, and (optionally) city and provider
-- Tray icon with the current flag; left-click to show/hide
-- Right-click the widget for a menu: copy IP, refresh, opacity, start with Windows, hide, quit
+- Lives in the tray: nothing sits on the desktop. Click the tray icon and a small pop-up
+  appears next to the taskbar; it closes when you click elsewhere
+- Live download / upload speed in the pop-up and in the tray tooltip
+  (with a VPN the traffic is counted once, not twice)
+- A globe with a red slash shows when there is no internet
+- Right-click the pop-up for a menu: copy IP, refresh, opacity, keep on desktop, start with Windows, quit
+- "Keep on desktop" brings back the always-visible, draggable widget
 - Double-click the widget to copy the IP address
 - Remembers its position and settings
 - Follows the Windows dark / light theme
@@ -44,3 +51,10 @@ tag such as `v0.2.0` to publish a release automatically.
 ```
 python -m unittest discover -s . -p "test_*.py" -v
 ```
+
+## About antivirus warnings
+
+Programs packaged from Python are sometimes flagged by mistake. The build therefore avoids
+packers (no UPX), embeds proper version information, and builds PyInstaller's launcher from
+source. This reduces false alarms but cannot guarantee zero; a code-signing certificate is
+the only complete fix.

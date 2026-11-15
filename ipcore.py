@@ -11,11 +11,13 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from logging.handlers import RotatingFileHandler
 
 import requests
 
-__version__ = "0.2.0"
+__version__ = "0.2.2"
+__author__ = "Mostafa Mandegari"
 
 APP_NAME = "MyIP Widget"
 APP_DIR_NAME = "MyIPWidget"
@@ -65,7 +67,7 @@ DEFAULT_SETTINGS = {
     "opacity": 0.7,
     "interval": 10,
     "show_details": True,
-    "visible": True,
+    "pinned": False,   # False: pop-up from the tray icon; True: stays on the desktop
 }
 
 
@@ -83,7 +85,7 @@ def _validate(key, value):
             return min(1.0, max(0.2, float(value)))
         if key == "interval":
             return min(300, max(5, int(value)))
-        if key in ("show_details", "visible"):
+        if key in ("show_details", "pinned"):
             return value if isinstance(value, bool) else default
     except (TypeError, ValueError):
         pass
@@ -304,6 +306,66 @@ class IPMonitor(threading.Thread):
                 wait = 10
             self._wake.wait(timeout=wait)
             self._wake.clear()
+
+
+# --------------------------------------------------------------------------
+# Live network speed
+# --------------------------------------------------------------------------
+_LOOPBACK = re.compile(r"loopback|^lo\d*$", re.IGNORECASE)
+
+
+def format_speed(bytes_per_second):
+    """1536 -> '1.5 KB/s'."""
+    value = max(0.0, float(bytes_per_second))
+    if value < 1024:
+        return f"{int(value)} B/s"
+    if value < 1024 ** 2:
+        return f"{value / 1024:.1f} KB/s"
+    if value < 1024 ** 3:
+        return f"{value / 1024 ** 2:.2f} MB/s"
+    return f"{value / 1024 ** 3:.2f} GB/s"
+
+
+def read_counters():
+    """{interface: (bytes_sent, bytes_received)} - empty if it cannot be read."""
+    try:
+        import psutil
+        return {name: (c.bytes_sent, c.bytes_recv)
+                for name, c in psutil.net_io_counters(pernic=True).items()}
+    except Exception:
+        return {}
+
+
+class SpeedMeter:
+    """Current download / upload speed, worked out from the adapters' byte counters.
+
+    With a VPN the same traffic passes through two adapters (the real one and the
+    tunnel). Adding them would show double the real speed, so only the busiest
+    adapter is used for each direction.
+    """
+
+    def __init__(self, reader=read_counters, clock=time.monotonic):
+        self._reader = reader
+        self._clock = clock
+        self._prev = None
+        self._prev_time = 0.0
+
+    def update(self):
+        """Call about once a second. Returns (download, upload) in bytes per second."""
+        now = self._clock()
+        current = {name: values for name, values in self._reader().items()
+                   if not _LOOPBACK.search(name)}
+        down = up = 0.0
+        if self._prev is not None and now > self._prev_time:
+            seconds = now - self._prev_time
+            for name, (sent, received) in current.items():
+                before = self._prev.get(name)
+                if before is None:
+                    continue
+                up = max(up, max(0, sent - before[0]) / seconds)
+                down = max(down, max(0, received - before[1]) / seconds)
+        self._prev, self._prev_time = current, now
+        return down, up
 
 
 # --------------------------------------------------------------------------
