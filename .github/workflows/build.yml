@@ -38,8 +38,23 @@ jobs:
       - name: Check the built program
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath "dist\MyIPWidget\MyIPWidget.exe" -ArgumentList "--selftest" -Wait -PassThru
-          if ($p.ExitCode -ne 0) { throw "Self-test failed with exit code $($p.ExitCode)" }
+          $stdOut = New-TemporaryFile
+          $stdErr = New-TemporaryFile
+          
+          $p = Start-Process -FilePath "dist\MyIPWidget\MyIPWidget.exe" `
+               -ArgumentList "--selftest" `
+               -Wait -PassThru `
+               -RedirectStandardOutput $stdOut `
+               -RedirectStandardError $stdErr
+               
+          Write-Host "--- Standard Output ---"
+          Get-Content $stdOut
+          Write-Host "--- Standard Error ---"
+          Get-Content $stdErr
+          
+          if ($p.ExitCode -ne 0) {
+            throw "Self-test failed with exit code $($p.ExitCode)"
+          }
 
       - name: Build the installer
         shell: pwsh
