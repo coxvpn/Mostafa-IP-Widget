@@ -1,12 +1,42 @@
-# My IP Info Widget
+# Mostafa-IP Info Widget
 
 Created by Mostafa Mandegari (مصطفی ماندگاری).
 
 See your public IP address, country, city and internet provider in real time —
 on the desktop and in the system tray (Windows).
 
-![](screenshots/MyIPWidget-dark.jpg)
-![](screenshots/MyIPWidget-light.jpg)
+Mostafa-IP Widget
+
+نسخه جدید برنامه Mostafa-IP Widget برای سیستم‌عامل‌های ویندوز و اندروید منتشر شد.
+
+این برنامه برای نمایش و بررسی اطلاعات IP طراحی شده است.
+
+📥 فایل‌های دانلود
+
+نسخه ویندوز: فایل نصب برنامه برای Windows
+
+نسخه اندروید: فایل APK برای نصب روی گوشی‌های Android
+
+⚙️ راهنمای نصب
+
+ویندوز: فایل نصب را دانلود و اجرا کنید.
+
+اندروید: فایل APK را دانلود و نصب کنید. در صورت نیاز، اجازه نصب از منابع ناشناس را فعال کنید.
+
+از تنظیمات ویجت را به صفحه اصلی اضافه کنین
+
+🔄 بروزرسانی
+
+برای دریافت آخرین نسخه برنامه، همین صفحه را دنبال کنید.
+
+توجه: فایل مناسب سیستم‌عامل خود را دانلود کنید.
+
+
+<img width="591" height="1280" alt="1" src="https://github.com/user-attachments/assets/9e0a3683-810f-4308-b577-d415711659c8" />
+
+<img width="591" height="1280" alt="1" src="https://github.com/user-attachments/assets/e110e7d7-6aff-4c63-8d88-8ef82e39e355" />
+
+
 
 ## Features (v0.2.2)
 
