@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ویجت آی‌پی</string>
+    <string name="app_name">Mostafa-IP-Widget</string>
     <string name="widget_description">نمایش آی‌پی و کشور شما</string>
     <string name="checking">در حال بررسی...</string>
     <string name="no_internet">اینترنت وصل نیست</string>

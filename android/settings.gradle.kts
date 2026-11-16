@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "MyIPWidget"
+rootProject.name = "Mostafa-IP-Widget"
 include(":app")

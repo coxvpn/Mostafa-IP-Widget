@@ -1,4 +1,4 @@
-# MyIP Widget - Android
+# Mostafa-IP-Widget - Android
 
 Home-screen widget (and small app) that shows your public IP address, country flag,
 city and provider. Android 8.0 or newer.
@@ -10,7 +10,7 @@ city and provider. Android 8.0 or newer.
 - Also refreshes by itself about every 30 minutes (Android's minimum for widgets).
 
 Build: run the "Build Android app" workflow on GitHub (Actions tab), then download the
-`MyIPWidget-Android` artifact. The app is signed with the key in `app/debug.keystore`, so every
+`Mostafa-IP-Widget-Android` artifact. The app is signed with the key in `app/debug.keystore`, so every
 new version installs over the previous one (the first time after a key change, uninstall the old one).
 
 ## نسخه ۰٫۴٫۰
