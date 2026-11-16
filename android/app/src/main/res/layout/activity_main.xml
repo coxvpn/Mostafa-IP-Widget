@@ -48,6 +48,13 @@
             android:text="@string/refresh" />
 
         <TextView
+            android:id="@+id/date_now"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:textSize="16sp" />
+
+        <TextView
             android:id="@+id/weather_now"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -98,6 +105,12 @@
         </LinearLayout>
 
         <CheckBox
+            android:id="@+id/check_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/show_date" />
+
+        <CheckBox
             android:id="@+id/check_speed_notice"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -122,6 +135,13 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/grant_usage" />
+
+        <Button
+            android:id="@+id/about"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/about" />
 
         <TextView
             android:id="@+id/hint"

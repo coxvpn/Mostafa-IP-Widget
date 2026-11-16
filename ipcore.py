@@ -17,7 +17,7 @@ from logging.handlers import RotatingFileHandler
 
 import requests
 
-__version__ = "0.5.2"
+__version__ = "1.1.0"
 __author__ = "Mostafa Mandegari"
 
 APP_NAME = "Mostafa-IP-Widget"
@@ -331,6 +331,42 @@ class IPMonitor(threading.Thread):
                 wait = 10
             self._wake.wait(timeout=wait)
             self._wake.clear()
+
+
+# --------------------------------------------------------------------------
+# About / updates
+# --------------------------------------------------------------------------
+REPO_URL = "https://github.com/coxvpn/Mostafa-IP-Widget"
+RELEASES_PAGE = REPO_URL + "/releases/latest"
+RELEASES_API = "https://api.github.com/repos/coxvpn/Mostafa-IP-Widget/releases/latest"
+
+
+def version_tuple(text):
+    """'v1.2.3' -> (1, 2, 3); None if there is no number in it."""
+    numbers = re.findall(r"\d+", str(text or ""))
+    return tuple(int(n) for n in numbers[:3]) if numbers else None
+
+
+def is_newer(latest, current):
+    a, b = version_tuple(latest), version_tuple(current)
+    return bool(a and b and a > b)
+
+
+def check_for_update(http=requests):
+    """Asks GitHub for the newest release.
+
+    Returns {'tag': '1.2.0'}; {'tag': ''} when no release exists yet; None if it could not be asked.
+    """
+    try:
+        resp = http.get(RELEASES_API, timeout=REQUEST_TIMEOUT,
+                        headers={**HEADERS, "Accept": "application/vnd.github+json"})
+        if getattr(resp, "status_code", getattr(resp, "status", 200)) == 404:
+            return {"tag": ""}
+        resp.raise_for_status()
+        return {"tag": _clean(resp.json().get("tag_name"), 40)}
+    except Exception as exc:
+        log.debug("Update check failed: %s", exc)
+        return None
 
 
 # --------------------------------------------------------------------------

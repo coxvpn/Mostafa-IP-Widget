@@ -79,6 +79,25 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(ipcore.Settings(self.path).load().data, ipcore.DEFAULT_SETTINGS)
 
 
+class UpdateTests(unittest.TestCase):
+    def test_versions_are_compared_as_numbers(self):
+        self.assertTrue(ipcore.is_newer("v1.10.0", "1.9.0"))
+        self.assertTrue(ipcore.is_newer("1.2", "1.1.9"))
+        self.assertFalse(ipcore.is_newer("v1.1.0", "1.1.0"))
+        self.assertFalse(ipcore.is_newer("v1.0.0", "1.1.0"))
+        self.assertFalse(ipcore.is_newer("", "1.1.0"))
+        self.assertFalse(ipcore.is_newer("latest", "1.1.0"))
+
+    def test_check_reads_the_tag(self):
+        http = FakeHttp({ipcore.RELEASES_API: FakeResponse({"tag_name": "v1.2.0"})})
+        self.assertEqual(ipcore.check_for_update(http), {"tag": "v1.2.0"})
+
+    def test_no_release_and_failure_are_different(self):
+        http = FakeHttp({ipcore.RELEASES_API: FakeResponse({}, status=404)})
+        self.assertEqual(ipcore.check_for_update(http), {"tag": ""})
+        self.assertIsNone(ipcore.check_for_update(FakeHttp({})))
+
+
 class PublicIpTests(unittest.TestCase):
     def test_first_source_works(self):
         http = FakeHttp({ipcore.IP_ENDPOINTS[0]: FakeResponse({"ip": "8.8.8.8"})})

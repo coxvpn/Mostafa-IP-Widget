@@ -132,13 +132,16 @@ class IpWidget : AppWidgetProvider() {
             // next to the flag: the weather and today's volume, as chosen in the app
             val showWeather = Prefs.showWeather(context) && Prefs.hasCity(context)
             val showUsage = Prefs.showUsage(context)
+            val showDate = Prefs.showDate(context)
             val weather = Weather.cached(context)
             views.setViewVisibility(R.id.weather, if (showWeather) View.VISIBLE else View.GONE)
             views.setTextViewText(R.id.weather, if (weather != null) Weather.format(weather) else "…")
+            views.setViewVisibility(R.id.date, if (showDate) View.VISIBLE else View.GONE)
+            views.setTextViewText(R.id.date, PersianDate.short())
             views.setViewVisibility(R.id.usage, if (showUsage) View.VISIBLE else View.GONE)
             views.setTextViewText(R.id.usage, Usage.format(context, Usage.cached(context)))
             // keep the space, so the button stays at the right edge
-            views.setViewVisibility(R.id.info, if (showWeather || showUsage) View.VISIBLE else View.INVISIBLE)
+            views.setViewVisibility(R.id.info, if (showWeather || showUsage || showDate) View.VISIBLE else View.INVISIBLE)
 
             val refreshIntent = Intent(context, IpWidget::class.java).setAction(ACTION_REFRESH)
             val refreshPending = PendingIntent.getBroadcast(

@@ -10,7 +10,7 @@
     <string name="hint">Tap the IP address to copy it.\nTo add the widget: long-press an empty spot on your home screen, choose Widgets, then Mostafa-IP-Widget.\nTap the widget to refresh it.</string>
     <string name="widget_settings">Widget settings</string>
     <string name="show_weather">Show the temperature</string>
-    <string name="show_usage">Show today's data usage</string>
+    <string name="show_usage">Show today\'s data usage</string>
     <string name="choose_city">Choose city</string>
     <string name="no_city">No city chosen</string>
     <string name="city_hint">City name (Persian or English)</string>
@@ -22,10 +22,14 @@
     <string name="pick_city">Pick your city</string>
     <string name="grant_usage">Allow usage access (needed for data usage)</string>
     <string name="usage_today">Today: %1$s</string>
-    <string name="usage_no_access">Data usage needs "usage access" - tap the button below and allow Mostafa-IP-Widget.</string>
+    <string name="usage_no_access">Data usage needs \"usage access\" - tap the button below and allow Mostafa-IP-Widget.</string>
     <string name="notice_channel">Live speed and flag</string>
     <string name="today_short">Today</string>
     <string name="show_speed_notice">Show live speed in the notification bar</string>
     <string name="show_flag_notice">Show the country in the notification bar (as letters)</string>
     <string name="notice_denied">Notifications are not allowed, so nothing can be shown. Allow them in the phone settings.</string>
+    <string name="show_date">Show today\'s date</string>
+    <string name="about">About me and source code</string>
+    <string name="source_code">Source code</string>
+    <string name="about_text">Mostafa-IP-Widget %1$s\n\nMade by Mostafa Mandegari.\nBased on the open-source project My-IP-Widget by B3H1Z.\n\nSource code:\n%2$s</string>
 </resources>

@@ -19,6 +19,12 @@ object Prefs {
         prefs(context).edit().putBoolean("show_usage", value).apply()
     }
 
+    fun showDate(context: Context) = prefs(context).getBoolean("show_date", true)
+
+    fun setShowDate(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("show_date", value).apply()
+    }
+
     /** Live speed (and weather / volume) in a notification, with the icon in the status bar. */
     fun showSpeedNotice(context: Context) = prefs(context).getBoolean("show_speed_notice", false)
 

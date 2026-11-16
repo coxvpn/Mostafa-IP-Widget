@@ -42,7 +42,6 @@ ICON_FILE = os.path.join(IMG_DIR, "icon.ico")
 FLAG_SIZE = 56
 TEXT_WIDTH = 24  # characters; keeps the window a stable size
 INFO_WIDTH = 24  # the column next to the flag
-OPACITY_CHOICES = (100, 85, 70, 50, 30)
 AUTOHIDE_MS = 10000      # pop-up closes by itself after this long if the mouse is not on it
 FOCUS_GRACE = 0.4        # seconds after showing in which losing focus is ignored
 REOPEN_GUARD = 0.7       # a tray click this soon after the pop-up closed itself only closes it
@@ -314,6 +313,7 @@ class App:
         self._tray_base_title = APP_NAME
         self._tray_title_shown = None
         self._speed_line = self._speed_text(0, 0)
+        self._speed_values = (0.0, 0.0)
         self.usage = ipcore.DailyUsage()
         self._usage_line = self._usage_text()
         self.weather = None          # {'temp': .., 'code': ..} once known
@@ -376,8 +376,6 @@ class App:
 
     def _weather_location(self):
         """(latitude, longitude) of the chosen city, or None when weather is off or no city is set."""
-        if not self.settings.get("show_weather"):
-            return None
         lat, lon = self.settings.get("city_lat"), self.settings.get("city_lon")
         return (lat, lon) if lat is not None and lon is not None else None
 
@@ -392,6 +390,7 @@ class App:
             self.usage.add(self.speed.down_bytes, self.speed.up_bytes)
             self.usage.save()
             self._speed_line = self._speed_text(down, up)
+            self._speed_values = (down, up)
             self._usage_line = self._usage_text()
             self.speed_lbl.config(text=self._speed_label_text(down, up))
             self.usage_lbl.config(text=self._usage_line)
@@ -407,10 +406,10 @@ class App:
         self.root.after(1000, self._speed_tick)
 
     def _refresh_info(self):
-        """Shows or hides the weather / speed / usage next to the flag, as chosen in the menu."""
+        """Weather / speed / usage next to the flag in the pop-up (weather needs a chosen city)."""
+        # The pop-up always shows everything; the on/off choices are for the taskbar bar only.
         show_weather = self._weather_wanted()
-        show_speed = bool(self.settings.get("show_speed"))
-        show_usage = bool(self.settings.get("show_usage"))
+        show_speed = show_usage = True
 
         if show_weather:
             if self.weather:
@@ -515,7 +514,6 @@ class App:
         self.embed_var = tk.BooleanVar(value=self.settings.get("strip_embed"))
         self.pin_var = tk.BooleanVar(value=self.pinned)
         self.startup_var = tk.BooleanVar(value=ipcore.is_startup_enabled())
-        self.opacity_var = tk.IntVar(value=self._nearest_opacity())
 
         self.menu = tk.Menu(self.root, tearoff=0)
         self.menu.add_command(label="Copy IP address", command=self.copy_ip)
@@ -523,11 +521,11 @@ class App:
         self.menu.add_separator()
         self.menu.add_checkbutton(label="Show city and provider", variable=self.details_var,
                                   command=self._toggle_details)
-        self.menu.add_checkbutton(label="Show weather", variable=self.weather_var,
+        self.menu.add_checkbutton(label="Bar: show weather", variable=self.weather_var,
                                   command=lambda: self._toggle_option("show_weather", self.weather_var))
-        self.menu.add_checkbutton(label="Show speed", variable=self.speed_var,
+        self.menu.add_checkbutton(label="Bar: show speed", variable=self.speed_var,
                                   command=lambda: self._toggle_option("show_speed", self.speed_var))
-        self.menu.add_checkbutton(label="Show today's data usage", variable=self.usage_var,
+        self.menu.add_checkbutton(label="Bar: show today's data usage", variable=self.usage_var,
                                   command=lambda: self._toggle_option("show_usage", self.usage_var))
         self.menu.add_checkbutton(label="Show bar beside the clock", variable=self.strip_var,
                                   command=lambda: self._toggle_option("show_strip", self.strip_var))
@@ -535,13 +533,9 @@ class App:
             self.menu.add_checkbutton(label="Build the bar into the taskbar (Windows 10)",
                                       variable=self.embed_var,
                                       command=lambda: self._toggle_option("strip_embed", self.embed_var))
-        self.menu.add_command(label="Put the bar back on the taskbar", command=self._reset_strip_position)
         self.menu.add_command(label="Choose city for weather...", command=self.choose_city)
-        opacity_menu = tk.Menu(self.menu, tearoff=0)
-        for pct in OPACITY_CHOICES:
-            opacity_menu.add_radiobutton(label=f"{pct}%", value=pct, variable=self.opacity_var,
-                                         command=self._apply_opacity)
-        self.menu.add_cascade(label="Opacity", menu=opacity_menu)
+        self.menu.add_command(label="Check for updates", command=lambda: self.show_about(check=True))
+        self.menu.add_command(label="About", command=self.show_about)
         self.menu.add_checkbutton(label="Keep on desktop", variable=self.pin_var,
                                   command=self._toggle_pin)
         if ipcore.IS_WINDOWS:
@@ -550,10 +544,6 @@ class App:
         self.menu.add_separator()
         self.menu.add_command(label="Close", command=self.hide_window)
         self.menu.add_command(label="Quit", command=self.quit)
-
-    def _nearest_opacity(self):
-        current = self.settings.get("opacity") * 100
-        return min(OPACITY_CHOICES, key=lambda pct: abs(pct - current))
 
     def _show_menu(self, event):
         self._menu_open = True
@@ -671,6 +661,10 @@ class App:
         self._strip_w = 0          # let the bar shrink / grow to the new content
         if key == "strip_embed":
             self._embed_failed = False
+        if key == "show_strip" and var.get():       # switching the bar on again: back to its own place
+            self.settings.set("strip_x", None, save=False)
+            self.settings.set("strip_y", None)
+            self._strip_geometry = None
         self._refresh_strip()
         self._update_tray_menu()
 
@@ -694,12 +688,10 @@ class App:
 
     # ------------------------------------------------- bar beside the clock
     def _build_strip(self):
-        """A small always-visible bar: flag + weather + speed + today's volume."""
+        """A small always-visible bar: weather | speed (two lines) | today's volume (two lines)."""
         self._image = None
         self._strip_w = 0
         self._strip_shown = None
-        self._strip_flag_key = None
-        self._strip_photo = None
         self._strip_moved = False
         self._strip_off = (0, 0)
         self._embed = TaskbarEmbed()
@@ -712,14 +704,16 @@ class App:
         self.strip.attributes("-alpha", 0.92)
         self.strip.configure(bg=self.bg)
         self.strip_box = tk.Frame(self.strip, bg=self.bg, highlightthickness=1,
-                                  highlightbackground=self.border, padx=6, pady=2)
+                                  highlightbackground=self.border, padx=6, pady=1)
         self.strip_box.pack(fill="both", expand=True)
-        self.strip_flag = tk.Label(self.strip_box, bg=self.bg, bd=0)
-        self.strip_text = tk.Label(self.strip_box, bg=self.bg, fg=self.fg, bd=0,
-                                   font=("Segoe UI", 11))
+        # Fixed widths: the numbers change every second and must never make the bar jump around.
+        label_args = dict(bg=self.bg, fg=self.fg, bd=0, anchor="w", justify="left")
+        self.strip_weather = tk.Label(self.strip_box, font=("Segoe UI", 11), width=8, **label_args)
+        self.strip_speed = tk.Label(self.strip_box, font=("Segoe UI", 9), width=10, height=2, **label_args)
+        self.strip_usage = tk.Label(self.strip_box, font=("Segoe UI", 9), width=11, height=2, **label_args)
+        self.strip_labels = (self.strip_weather, self.strip_speed, self.strip_usage)
         # no flag here: the tray icon already shows it
-        self.strip_text.pack(side="left", expand=True)
-        for widget in (self.strip, self.strip_box, self.strip_flag, self.strip_text):
+        for widget in (self.strip, self.strip_box) + self.strip_labels:
             widget.bind("<ButtonPress-1>", self._strip_press)
             widget.bind("<B1-Motion>", self._strip_move)
             widget.bind("<ButtonRelease-1>", self._strip_release)
@@ -743,19 +737,28 @@ class App:
         else:                     # a plain click opens / closes the pop-up
             self.toggle_window()
 
-    def _strip_content(self):
-        parts = []
-        if self._weather_wanted():
-            if self.weather:
-                parts.append(f"{ipcore.weather_symbol(self.weather['code'])} "
-                             f"{ipcore.format_temp(self.weather['temp'])}")
-            else:
-                parts.append("...")
+    @staticmethod
+    def _short_speed(value):
+        """Short, e.g. '32 K/s' or '1.6 M/s' (the bar is small)."""
+        kb = max(0.0, float(value)) / 1024
+        if kb < 1000:
+            return f"{kb:.1f} K/s" if kb < 10 else f"{int(kb)} K/s"
+        mb = kb / 1024
+        return f"{mb:.1f} M/s" if mb < 100 else f"{int(mb)} M/s"
+
+    def _strip_texts(self):
+        """The three pieces of the bar; None means 'not shown'."""
+        weather = speed = usage = None
+        if self.settings.get("show_weather") and self._weather_wanted():
+            weather = (f"{ipcore.weather_symbol(self.weather['code'])} "
+                       f"{ipcore.format_temp(self.weather['temp'])}") if self.weather else "..."
         if self.settings.get("show_speed"):
-            parts.append(self._speed_line)
+            down, up = self._speed_values
+            speed = f"\u2191 {self._short_speed(up)}\n\u2193 {self._short_speed(down)}"
         if self.settings.get("show_usage"):
-            parts.append(self._usage_line)
-        return "   |   ".join(parts)
+            usage = (f"\u2193 {ipcore.format_bytes(self.usage.down)}\n"
+                     f"\u2191 {ipcore.format_bytes(self.usage.up)}")
+        return weather, speed, usage
 
     def _refresh_strip(self):
         if self.closing:
@@ -766,15 +769,25 @@ class App:
                 self.strip.withdraw()
             return
         changed = False
-        text = self._strip_content()
-        if text != self._strip_shown:
-            self._strip_shown = text
-            self.strip_text.config(text=text)
-            changed = True
+        texts = self._strip_texts()
+        if texts != self._strip_shown:
+            shown = self._strip_shown or (None, None, None)
+            self._strip_shown = texts
+            changed = [t is None for t in texts] != [t is None for t in shown]
+            if changed:          # a different set of parts: lay them out again, in order
+                for label in self.strip_labels:
+                    label.pack_forget()
+                for label, text in zip(self.strip_labels, texts):
+                    if text is not None:
+                        label.pack(side="left", padx=(0, 10))
+            for label, text in zip(self.strip_labels, texts):
+                if text is not None:
+                    label.config(text=text)
         if self.strip.state() == "withdrawn":
             changed = True
             self.strip.deiconify()
         if changed:
+            self._strip_w = 0
             self._place_strip()
         self._apply_embed()
 
@@ -790,13 +803,15 @@ class App:
         text = "#ffffff" if (0.299 * red + 0.587 * green + 0.114 * blue) < 140 else "#111111"
         self.strip.configure(bg=color)
         self.strip_box.configure(bg=color, highlightbackground=color)
-        self.strip_text.configure(bg=color, fg=text)
+        for label in self.strip_labels:
+            label.configure(bg=color, fg=text)
 
     def _restore_strip_colors(self):
         self._strip_color = None
         self.strip.configure(bg=self.bg)
         self.strip_box.configure(bg=self.bg, highlightbackground=self.border)
-        self.strip_text.configure(bg=self.bg, fg=self.fg)
+        for label in self.strip_labels:
+            label.configure(bg=self.bg, fg=self.fg)
 
     def _apply_embed(self):
         """Builds the bar into the taskbar (or takes it out) according to the menu choice."""
@@ -983,6 +998,95 @@ class App:
         self._refresh_info()
         self._apply_tray_title()
 
+    # ---------------------------------------------------------------- about
+    def show_about(self, check=False):
+        """About window: name, version, author, link to the source code, and the update check."""
+        dlg = getattr(self, "_about_dlg", None)
+        if dlg:
+            try:
+                dlg["win"].lift()
+                dlg["win"].focus_force()
+            except tk.TclError:
+                pass
+        else:
+            win = tk.Toplevel(self.root)
+            win.title(f"About {APP_NAME}")
+            win.configure(bg=self.bg, padx=18, pady=14)
+            win.resizable(False, False)
+            win.attributes("-topmost", True)
+            try:
+                win.iconbitmap(ICON_FILE)
+            except Exception:
+                pass
+            tk.Label(win, text=APP_NAME, bg=self.bg, fg=self.fg,
+                     font=("Segoe UI", 14, "bold")).pack(anchor="w")
+            tk.Label(win, text=f"Version {__version__}", bg=self.bg, fg=self.dim,
+                     font=("Segoe UI", 9)).pack(anchor="w")
+            tk.Label(win, text=f"By {ipcore.__author__}  ({CREDIT_FA})", bg=self.bg, fg=self.fg,
+                     font=("Segoe UI", 10)).pack(anchor="w", pady=(10, 0))
+            tk.Label(win, text="Based on the open-source project My-IP-Widget by B3H1Z.",
+                     bg=self.bg, fg=self.dim, font=("Segoe UI", 9)).pack(anchor="w")
+            link = tk.Label(win, text=ipcore.REPO_URL, bg=self.bg, fg="#3b82f6", cursor="hand2",
+                            font=("Segoe UI", 10, "underline"))
+            link.pack(anchor="w", pady=(10, 0))
+            link.bind("<Button-1>", lambda e: self._open_url(ipcore.REPO_URL))
+            status = tk.Label(win, text="", bg=self.bg, fg=self.fg, font=("Segoe UI", 10),
+                              anchor="w", justify="left")
+            status.pack(anchor="w", pady=(12, 0))
+            buttons = tk.Frame(win, bg=self.bg)
+            buttons.pack(anchor="e", pady=(12, 0))
+            check_btn = tk.Button(buttons, text="Check for updates",
+                                  command=lambda: self.show_about(check=True))
+            check_btn.pack(side="left", padx=(0, 6))
+            download_btn = tk.Button(buttons, text="Open download page",
+                                     command=lambda: self._open_url(ipcore.RELEASES_PAGE))
+            tk.Button(buttons, text="Close", command=self._about_close).pack(side="left")
+            win.protocol("WM_DELETE_WINDOW", self._about_close)
+            self._about_dlg = dlg = {"win": win, "status": status, "check": check_btn,
+                                     "download": download_btn}
+            win.update_idletasks()
+            left, top, right, bottom = work_area(self.root)
+            win.geometry(f"+{left + (right - left - win.winfo_reqwidth()) // 2}"
+                         f"+{top + (bottom - top - win.winfo_reqheight()) // 3}")
+        if check:
+            dlg["status"].config(text="Checking for updates...")
+            dlg["check"].config(state="disabled")
+            dlg["download"].pack_forget()
+            threading.Thread(target=lambda: self.post("update", ipcore.check_for_update()),
+                             daemon=True).start()
+
+    def _update_result(self, result):
+        dlg = getattr(self, "_about_dlg", None)
+        if not dlg:
+            return
+        dlg["check"].config(state="normal")
+        if result is None:
+            text = "Could not check. Check the internet connection."
+        elif not result["tag"]:
+            text = f"You have the latest version ({__version__})."
+        elif ipcore.is_newer(result["tag"], __version__):
+            text = f"A new version is available: {result['tag']}"
+            dlg["download"].pack(side="left", padx=(0, 6), before=dlg["check"])
+        else:
+            text = f"You have the latest version ({__version__})."
+        dlg["status"].config(text=text)
+
+    def _about_close(self):
+        dlg, self._about_dlg = getattr(self, "_about_dlg", None), None
+        if dlg:
+            try:
+                dlg["win"].destroy()
+            except tk.TclError:
+                pass
+
+    @staticmethod
+    def _open_url(url):
+        try:
+            import webbrowser
+            webbrowser.open(url)
+        except Exception:
+            ipcore.log.exception("Could not open %s", url)
+
     def _city_close(self):
         dlg, self._city_dlg = self._city_dlg, None
         if dlg:
@@ -998,11 +1102,6 @@ class App:
         else:
             self.hide_window()
         self._update_tray_menu()
-
-    def _apply_opacity(self):
-        value = self.opacity_var.get() / 100.0
-        self.settings.set("opacity", value)
-        self.root.attributes("-alpha", value)
 
     def _toggle_startup(self):
         wanted = bool(self.startup_var.get())
@@ -1081,14 +1180,15 @@ class App:
                      lambda icon, item: self.post("opt", "strip_embed"),
                      checked=lambda item: bool(self.settings.get("strip_embed")),
                      visible=ipcore.IS_WINDOWS),
-            MenuItem("Put the bar back on the taskbar", lambda icon, item: self.post("barreset")),
-            MenuItem("Show weather", lambda icon, item: self.post("opt", "show_weather"),
+            MenuItem("Bar: show weather", lambda icon, item: self.post("opt", "show_weather"),
                      checked=lambda item: bool(self.settings.get("show_weather"))),
-            MenuItem("Show speed", lambda icon, item: self.post("opt", "show_speed"),
+            MenuItem("Bar: show speed", lambda icon, item: self.post("opt", "show_speed"),
                      checked=lambda item: bool(self.settings.get("show_speed"))),
-            MenuItem("Show today's data usage", lambda icon, item: self.post("opt", "show_usage"),
+            MenuItem("Bar: show today's data usage", lambda icon, item: self.post("opt", "show_usage"),
                      checked=lambda item: bool(self.settings.get("show_usage"))),
             MenuItem("Choose city for weather...", lambda icon, item: self.post("city")),
+            MenuItem("Check for updates", lambda icon, item: self.post("about", True)),
+            MenuItem("About", lambda icon, item: self.post("about", False)),
             MenuItem("Keep on desktop", lambda icon, item: self.post("pin"),
                      checked=lambda item: self.pinned),
             MenuItem("Start with Windows", lambda icon, item: self.post("startup"),
@@ -1118,17 +1218,15 @@ class App:
         self._apply_tray_title()
 
     def _apply_tray_title(self):
-        """Tooltip = IP and country, plus weather, live speed and today's volume (if shown)."""
+        """Tooltip = IP and country, plus weather, live speed and today's volume."""
         if not self.tray:
             return
         lines = [self._tray_base_title]
         if self._weather_wanted() and self.weather:
             lines.append(f"{ipcore.weather_symbol(self.weather['code'])} "
                          f"{ipcore.format_temp(self.weather['temp'])}  {self.settings.get('city_name')}")
-        if self.settings.get("show_speed"):
-            lines.append(self._speed_line)
-        if self.settings.get("show_usage"):
-            lines.append(self._usage_line)
+        lines.append(self._speed_line)
+        lines.append(self._usage_line)
         title = "\n".join(lines)[:127]  # Windows allows at most 127 characters
         if title == self._tray_title_shown:
             return
@@ -1172,8 +1270,10 @@ class App:
             self._refresh_info()
             self._apply_tray_title()
             self._refresh_strip()
-        elif kind == "barreset":
-            self._reset_strip_position()
+        elif kind == "about":
+            self.show_about(check=bool(payload))
+        elif kind == "update":
+            self._update_result(payload)
         elif kind == "opt":
             self._toggle_setting(payload)
         elif kind == "city":

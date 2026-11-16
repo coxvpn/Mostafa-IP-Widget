@@ -20,6 +20,10 @@ import android.widget.TextView
 import android.widget.Toast
 
 class MainActivity : Activity() {
+    private companion object {
+        const val SOURCE_URL = "https://github.com/coxvpn/Mostafa-IP-Widget"
+    }
+
     private lateinit var flagView: TextView
     private lateinit var countryView: TextView
     private lateinit var ipView: TextView
@@ -32,6 +36,8 @@ class MainActivity : Activity() {
     private lateinit var checkUsage: CheckBox
     private lateinit var grantUsage: Button
     private lateinit var checkSpeedNotice: CheckBox
+    private lateinit var checkDate: CheckBox
+    private lateinit var dateNow: TextView
     private lateinit var checkFlagNotice: CheckBox
     private var currentIp: String = ""
 
@@ -64,6 +70,14 @@ class MainActivity : Activity() {
             Prefs.setShowUsage(this, checked)
             updateExtras()
         }
+        dateNow = findViewById(R.id.date_now)
+        checkDate = findViewById(R.id.check_date)
+        checkDate.isChecked = Prefs.showDate(this)
+        checkDate.setOnCheckedChangeListener { _, checked ->
+            Prefs.setShowDate(this, checked)
+            updateExtras()
+        }
+        findViewById<Button>(R.id.about).setOnClickListener { showAbout() }
         checkSpeedNotice = findViewById(R.id.check_speed_notice)
         checkFlagNotice = findViewById(R.id.check_flag_notice)
         checkSpeedNotice.isChecked = Prefs.showSpeedNotice(this)
@@ -116,6 +130,27 @@ class MainActivity : Activity() {
         SpeedService.sync(this)
     }
 
+    @Suppress("DEPRECATION")
+    private fun showAbout() {
+        val version = try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.about)
+            .setMessage(getString(R.string.about_text, version, SOURCE_URL))
+            .setPositiveButton(R.string.source_code) { _, _ ->
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(SOURCE_URL)))
+                } catch (e: Exception) {
+                    // no browser installed
+                }
+            }
+            .setNegativeButton(android.R.string.ok, null)
+            .show()
+    }
+
     private fun show(display: Display) {
         currentIp = display.ip
         flagView.text = display.flag
@@ -126,6 +161,8 @@ class MainActivity : Activity() {
 
     /** Fills in the weather, today's volume, the city name and the permission button from what is saved. */
     private fun showExtras() {
+        dateNow.text = PersianDate.full()
+        dateNow.visibility = if (Prefs.showDate(this)) View.VISIBLE else View.GONE
         val weather = Weather.cached(this)
         weatherNow.text = if (Prefs.hasCity(this) && weather != null) Weather.format(weather) else ""
         weatherNow.visibility = if (weatherNow.text.isEmpty()) View.GONE else View.VISIBLE

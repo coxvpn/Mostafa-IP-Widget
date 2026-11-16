@@ -28,4 +28,8 @@
     <string name="show_speed_notice">نمایش سرعت لحظه‌ای در نوار اعلان بالای گوشی</string>
     <string name="show_flag_notice">نمایش کشور در نوار اعلان (به‌صورت حروف)</string>
     <string name="notice_denied">اجازه‌ی اعلان داده نشده، پس چیزی نشان داده نمی‌شود. در تنظیمات گوشی اجازه بدهید.</string>
+    <string name="show_date">نمایش تاریخ امروز</string>
+    <string name="about">درباره‌ی من و کد برنامه</string>
+    <string name="source_code">کد برنامه</string>
+    <string name="about_text">Mostafa-IP-Widget %1$s\n\nساخته‌شده توسط مصطفی ماندگاری.\nبر پایه‌ی پروژه‌ی متن‌باز My-IP-Widget از B3H1Z.\n\nکد برنامه:\n%2$s</string>
 </resources>

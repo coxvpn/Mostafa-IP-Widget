@@ -40,6 +40,15 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/date"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/widget_text"
+                android:textSize="11sp" />
+
+            <TextView
                 android:id="@+id/usage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
