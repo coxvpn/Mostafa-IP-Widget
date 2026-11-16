@@ -9,6 +9,7 @@ import os
 import queue
 import re
 import sys
+import threading
 import time
 import tkinter as tk
 
@@ -39,6 +40,7 @@ ICON_FILE = os.path.join(IMG_DIR, "icon.ico")
 
 FLAG_SIZE = 56
 TEXT_WIDTH = 24  # characters; keeps the window a stable size
+INFO_WIDTH = 24  # the column next to the flag
 OPACITY_CHOICES = (100, 85, 70, 50, 30)
 AUTOHIDE_MS = 10000      # pop-up closes by itself after this long if the mouse is not on it
 FOCUS_GRACE = 0.4        # seconds after showing in which losing focus is ignored
@@ -134,6 +136,10 @@ class App:
         self._tray_base_title = APP_NAME
         self._tray_title_shown = None
         self._speed_line = self._speed_text(0, 0)
+        self.usage = ipcore.DailyUsage()
+        self._usage_line = self._usage_text()
+        self.weather = None          # {'temp': .., 'code': ..} once known
+        self._city_dlg = None
 
         self.root = tk.Tk()
         self.root.withdraw()
@@ -164,6 +170,11 @@ class App:
             interval_fn=lambda: self.settings.get("interval"),
         )
         self.monitor.start()
+        self.weather_monitor = ipcore.WeatherMonitor(
+            on_update=lambda result: self.post("weather", result),
+            location_fn=self._weather_location,
+        )
+        self.weather_monitor.start()
         self.root.after(100, self._process_queue)
         self.speed.update()  # first reading; real speeds appear a second later
         self.root.after(1000, self._speed_tick)
@@ -174,19 +185,78 @@ class App:
 
     @staticmethod
     def _speed_text(down, up):
-        return f"↓ {ipcore.format_speed(down)}    ↑ {ipcore.format_speed(up)}"
+        return f"\u2193 {ipcore.format_speed(down)}    \u2191 {ipcore.format_speed(up)}"
+
+    @staticmethod
+    def _speed_label_text(down, up):
+        return f"\u2193 {ipcore.format_speed(down)}\n\u2191 {ipcore.format_speed(up)}"
+
+    def _usage_text(self):
+        return (f"Today  \u2193 {ipcore.format_bytes(self.usage.down)}"
+                f"  \u2191 {ipcore.format_bytes(self.usage.up)}")
+
+    def _weather_location(self):
+        """(latitude, longitude) of the chosen city, or None when weather is off or no city is set."""
+        if not self.settings.get("show_weather"):
+            return None
+        lat, lon = self.settings.get("city_lat"), self.settings.get("city_lon")
+        return (lat, lon) if lat is not None and lon is not None else None
+
+    def _weather_wanted(self):
+        return self._weather_location() is not None
 
     def _speed_tick(self):
         if self.closing:
             return
         try:
             down, up = self.speed.update()
+            self.usage.add(self.speed.down_bytes, self.speed.up_bytes)
+            self.usage.save()
             self._speed_line = self._speed_text(down, up)
-            self.speed_lbl.config(text=self._speed_line)
+            self._usage_line = self._usage_text()
+            self.speed_lbl.config(text=self._speed_label_text(down, up))
+            self.usage_lbl.config(text=self._usage_line)
             self._apply_tray_title()
+            self._ticks = getattr(self, "_ticks", 0) + 1
+            if self._ticks % 60 == 0 and self.tray and getattr(self, "_tray_image", None) is not None:
+                self.tray.icon = self._tray_image  # draw it again, in case Windows lost it
         except Exception:
             ipcore.log.exception("Could not update the network speed")
         self.root.after(1000, self._speed_tick)
+
+    def _refresh_info(self):
+        """Shows or hides the weather / speed / usage next to the flag, as chosen in the menu."""
+        show_weather = self._weather_wanted()
+        show_speed = bool(self.settings.get("show_speed"))
+        show_usage = bool(self.settings.get("show_usage"))
+
+        if show_weather:
+            if self.weather:
+                text = f"{ipcore.weather_symbol(self.weather['code'])} {ipcore.format_temp(self.weather['temp'])}"
+            else:
+                text = "..."
+            self.weather_lbl.config(text=text)
+            self.weather_city_lbl.config(text=self.settings.get("city_name"))
+            self.weather_lbl.grid()
+            self.weather_city_lbl.grid()
+        else:
+            self.weather_lbl.grid_remove()
+            self.weather_city_lbl.grid_remove()
+        if show_speed:
+            self.speed_lbl.grid()
+        else:
+            self.speed_lbl.grid_remove()
+        if show_usage:
+            self.usage_lbl.grid()
+        else:
+            self.usage_lbl.grid_remove()
+
+        if show_weather or show_speed or show_usage:
+            self.info.grid()
+        else:
+            self.info.grid_remove()
+        if self._is_visible() and not self.pinned:
+            self._place_window()
 
     # ------------------------------------------------------------------ UI
     def _build_colors(self):
@@ -204,28 +274,43 @@ class App:
                               highlightbackground=self.border, padx=10, pady=8)
         self.frame.pack()
 
+        # top row: the flag, and next to it the weather, the speed and today's volume
+        self.top = tk.Frame(self.frame, bg=self.bg)
+        self.flag_lbl = tk.Label(self.top, bg=self.bg, bd=0)
+        self.info = tk.Frame(self.top, bg=self.bg)
+        info_args = dict(bg=self.bg, bd=0, highlightthickness=0, anchor="w", justify="left",
+                         width=INFO_WIDTH)
+        self.weather_lbl = tk.Label(self.info, fg=self.fg, font=("Segoe UI", 13, "bold"), **info_args)
+        self.weather_city_lbl = tk.Label(self.info, fg=self.dim, font=("Segoe UI", 8), **info_args)
+        self.speed_lbl = tk.Label(self.info, fg=self.fg, font=("Segoe UI", 9),
+                                  text=self._speed_label_text(0, 0), **info_args)
+        self.usage_lbl = tk.Label(self.info, fg=self.dim, font=("Segoe UI", 8),
+                                  text=self._usage_line, **info_args)
+        self.weather_lbl.grid(row=0, column=0, sticky="w")
+        self.weather_city_lbl.grid(row=1, column=0, sticky="w")
+        self.speed_lbl.grid(row=2, column=0, sticky="w", pady=(4, 0))
+        self.usage_lbl.grid(row=3, column=0, sticky="w", pady=(2, 0))
+        self.flag_lbl.grid(row=0, column=0)
+        self.info.grid(row=0, column=1, padx=(10, 0))
+
         label_args = dict(bg=self.bg, bd=0, highlightthickness=0, width=TEXT_WIDTH)
-        self.flag_lbl = tk.Label(self.frame, bg=self.bg, bd=0)
         self.country_lbl = tk.Label(self.frame, fg=self.fg, font=("Segoe UI", 11, "bold"), **label_args)
         self.ip_lbl = tk.Label(self.frame, fg=self.fg, font=("Segoe UI", 10), **label_args)
         self.detail_lbl = tk.Label(self.frame, fg=self.dim, font=("Segoe UI", 8),
                                    wraplength=int(190 * scale), justify="center", **label_args)
-
-        self.speed_lbl = tk.Label(self.frame, fg=self.fg, font=("Segoe UI", 9),
-                                  text=self._speed_text(0, 0), **label_args)
         self.credit_lbl = tk.Label(self.frame, fg=self.dim, font=("Segoe UI", 8),
                                    text=CREDIT_FA, **label_args)
 
-        self.flag_lbl.grid(row=0, column=0)
+        self.top.grid(row=0, column=0)
         self.country_lbl.grid(row=1, column=0)
         self.ip_lbl.grid(row=2, column=0)
         self.detail_lbl.grid(row=3, column=0)
-        self.speed_lbl.grid(row=4, column=0, pady=(4, 0))
-        self.credit_lbl.grid(row=5, column=0, pady=(4, 0))
+        self.credit_lbl.grid(row=4, column=0, pady=(4, 0))
 
         # Not bound on the root window itself: its events would fire twice.
-        for widget in (self.frame, self.flag_lbl, self.country_lbl, self.ip_lbl,
-                       self.detail_lbl, self.speed_lbl, self.credit_lbl):
+        for widget in (self.frame, self.top, self.info, self.flag_lbl, self.weather_lbl,
+                       self.weather_city_lbl, self.speed_lbl, self.usage_lbl, self.country_lbl,
+                       self.ip_lbl, self.detail_lbl, self.credit_lbl):
             widget.bind("<ButtonPress-1>", self._drag_start)
             widget.bind("<B1-Motion>", self._drag_move)
             widget.bind("<ButtonRelease-1>", self._drag_end)
@@ -237,9 +322,13 @@ class App:
                 Hovertip(self.flag_lbl, HINT, hover_delay=700)
             except Exception:
                 pass
+        self._refresh_info()
 
     def _build_menu(self):
         self.details_var = tk.BooleanVar(value=self.settings.get("show_details"))
+        self.weather_var = tk.BooleanVar(value=self.settings.get("show_weather"))
+        self.speed_var = tk.BooleanVar(value=self.settings.get("show_speed"))
+        self.usage_var = tk.BooleanVar(value=self.settings.get("show_usage"))
         self.pin_var = tk.BooleanVar(value=self.pinned)
         self.startup_var = tk.BooleanVar(value=ipcore.is_startup_enabled())
         self.opacity_var = tk.IntVar(value=self._nearest_opacity())
@@ -250,6 +339,13 @@ class App:
         self.menu.add_separator()
         self.menu.add_checkbutton(label="Show city and provider", variable=self.details_var,
                                   command=self._toggle_details)
+        self.menu.add_checkbutton(label="Show weather", variable=self.weather_var,
+                                  command=lambda: self._toggle_option("show_weather", self.weather_var))
+        self.menu.add_checkbutton(label="Show speed", variable=self.speed_var,
+                                  command=lambda: self._toggle_option("show_speed", self.speed_var))
+        self.menu.add_checkbutton(label="Show today's data usage", variable=self.usage_var,
+                                  command=lambda: self._toggle_option("show_usage", self.usage_var))
+        self.menu.add_command(label="Choose city for weather...", command=self.choose_city)
         opacity_menu = tk.Menu(self.menu, tearoff=0)
         for pct in OPACITY_CHOICES:
             opacity_menu.add_radiobutton(label=f"{pct}%", value=pct, variable=self.opacity_var,
@@ -375,6 +471,137 @@ class App:
         self.settings.set("show_details", bool(self.details_var.get()))
         self._render()
 
+    def _toggle_option(self, key, var):
+        self.settings.set(key, bool(var.get()))
+        if key == "show_weather":
+            self.weather_monitor.refresh()
+        self._refresh_info()
+        self._apply_tray_title()
+
+    # ---------------------------------------------------------- city dialog
+    def choose_city(self):
+        """A small window: type a city name, search, pick one from the list."""
+        if self._city_dlg:
+            try:
+                self._city_dlg["win"].lift()
+                self._city_dlg["win"].focus_force()
+            except tk.TclError:
+                pass
+            return
+        win = tk.Toplevel(self.root)
+        win.title("Choose city for weather")
+        win.configure(bg=self.bg, padx=14, pady=12)
+        win.resizable(False, False)
+        win.attributes("-topmost", True)
+        try:
+            win.iconbitmap(ICON_FILE)
+        except Exception:
+            pass
+
+        tk.Label(win, text="City name (Persian or English):", bg=self.bg, fg=self.fg,
+                 font=("Segoe UI", 10)).grid(row=0, column=0, columnspan=2, sticky="w")
+        entry = tk.Entry(win, width=34, font=("Segoe UI", 11))
+        entry.grid(row=1, column=0, sticky="we", pady=(4, 6))
+        tk.Button(win, text="Search", command=self._city_search).grid(row=1, column=1, padx=(6, 0))
+        listbox = tk.Listbox(win, height=7, width=44, font=("Segoe UI", 10), exportselection=False)
+        listbox.grid(row=2, column=0, columnspan=2, sticky="we")
+        status = tk.Label(win, text="Type a name and press Enter.", bg=self.bg, fg=self.dim,
+                          font=("Segoe UI", 9), anchor="w")
+        status.grid(row=3, column=0, columnspan=2, sticky="we", pady=(6, 6))
+        buttons = tk.Frame(win, bg=self.bg)
+        buttons.grid(row=4, column=0, columnspan=2, sticky="e")
+        tk.Button(buttons, text="Use this city", command=self._city_accept).pack(side="left", padx=(0, 6))
+        tk.Button(buttons, text="Remove city", command=self._city_clear).pack(side="left", padx=(0, 6))
+        tk.Button(buttons, text="Cancel", command=self._city_close).pack(side="left")
+        entry.bind("<Return>", lambda e: self._city_search())
+        listbox.bind("<Double-Button-1>", lambda e: self._city_accept())
+        win.protocol("WM_DELETE_WINDOW", self._city_close)
+
+        self._city_dlg = {"win": win, "entry": entry, "list": listbox, "status": status,
+                          "results": [], "token": 0}
+        win.update_idletasks()
+        left, top, right, bottom = work_area(self.root)
+        x = left + (right - left - win.winfo_reqwidth()) // 2
+        y = top + (bottom - top - win.winfo_reqheight()) // 3
+        win.geometry(f"+{x}+{y}")
+        entry.focus_force()
+
+    def _city_search(self):
+        dlg = self._city_dlg
+        if not dlg:
+            return
+        query = dlg["entry"].get().strip()
+        if len(query) < 2:
+            dlg["status"].config(text="Type at least two letters.")
+            return
+        dlg["token"] += 1
+        token = dlg["token"]
+        dlg["status"].config(text="Searching...")
+
+        def work():
+            self.post("cities", (token, ipcore.search_cities(query)))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _city_results(self, token, results):
+        dlg = self._city_dlg
+        if not dlg or token != dlg["token"]:
+            return  # an older search, or the window was closed
+        dlg["list"].delete(0, "end")
+        if results is None:
+            dlg["results"] = []
+            dlg["status"].config(text="Could not search. Check the internet connection.")
+            return
+        dlg["results"] = results
+        for item in results:
+            dlg["list"].insert("end", " - ".join(p for p in (item["name"], item["region"], item["country"]) if p))
+        if results:
+            dlg["list"].selection_set(0)
+            dlg["status"].config(text="Choose your city, then press \"Use this city\".")
+        else:
+            dlg["status"].config(text="No city found. Try another spelling.")
+
+    def _city_accept(self):
+        dlg = self._city_dlg
+        if not dlg:
+            return
+        selection = dlg["list"].curselection()
+        if not selection or selection[0] >= len(dlg["results"]):
+            dlg["status"].config(text="Select a city from the list first.")
+            return
+        self._set_city(dlg["results"][selection[0]])
+
+    def _set_city(self, item):
+        self.settings.set("city_name", item["name"], save=False)
+        self.settings.set("city_lat", item["lat"], save=False)
+        self.settings.set("city_lon", item["lon"], save=False)
+        self.settings.set("show_weather", True)
+        self.weather_var.set(True)
+        self.weather = None
+        self._city_close()
+        self.weather_monitor.refresh()
+        self._refresh_info()
+        self._apply_tray_title()
+        self.show_window()
+
+    def _city_clear(self):
+        self.settings.set("city_name", "", save=False)
+        self.settings.set("city_lat", None, save=False)
+        self.settings.set("city_lon", None)
+        self.weather = None
+        self._city_close()
+        self.weather_monitor.refresh()
+        self._refresh_info()
+        self._apply_tray_title()
+
+    def _city_close(self):
+        dlg, self._city_dlg = self._city_dlg, None
+        if dlg:
+            try:
+                dlg["win"].destroy()
+            except tk.TclError:
+                pass
+
     def _toggle_pin(self):
         self.settings.set("pinned", bool(self.pin_var.get()))
         if self.pinned:
@@ -415,6 +642,7 @@ class App:
             detail = " - ".join(p for p in (state["city"], state["isp"]) if p)
             image = load_flag_image(state["code"])
 
+        self._update_tray(image, ip, country)  # first: the tray must follow even if the pop-up fails
         self._flag_photo = ImageTk.PhotoImage(image.resize((self.flag_px, self.flag_px), Image.LANCZOS))
         self.flag_lbl.config(image=self._flag_photo)
         self.country_lbl.config(text=country)
@@ -425,7 +653,6 @@ class App:
         else:
             self.detail_lbl.grid_remove()
 
-        self._update_tray(image, ip, country)
         if self._is_visible() and not self.pinned:
             self._place_window()  # the height may have changed
 
@@ -455,6 +682,7 @@ class App:
             MenuItem("Show / Hide", lambda icon, item: self.post("toggle"), default=True),
             MenuItem("Copy IP address", lambda icon, item: self.post("copy")),
             MenuItem("Refresh now", lambda icon, item: self.post("refresh")),
+            MenuItem("Choose city for weather...", lambda icon, item: self.post("city")),
             MenuItem("Keep on desktop", lambda icon, item: self.post("pin"),
                      checked=lambda item: self.pinned),
             MenuItem("Start with Windows", lambda icon, item: self.post("startup"),
@@ -474,6 +702,7 @@ class App:
 
     def _update_tray(self, image, ip, country):
         self._tray_base_title = f"{ip}  ({country})" if ip else country
+        self._tray_image = image
         if not self.tray:
             return
         try:
@@ -483,10 +712,18 @@ class App:
         self._apply_tray_title()
 
     def _apply_tray_title(self):
-        """Tooltip = IP and country, plus the live speed (only touched when the text changes)."""
+        """Tooltip = IP and country, plus weather, live speed and today's volume (if shown)."""
         if not self.tray:
             return
-        title = f"{self._tray_base_title}\n{self._speed_line}"
+        lines = [self._tray_base_title]
+        if self._weather_wanted() and self.weather:
+            lines.append(f"{ipcore.weather_symbol(self.weather['code'])} "
+                         f"{ipcore.format_temp(self.weather['temp'])}  {self.settings.get('city_name')}")
+        if self.settings.get("show_speed"):
+            lines.append(self._speed_line)
+        if self.settings.get("show_usage"):
+            lines.append(self._usage_line)
+        title = "\n".join(lines)[:127]  # Windows allows at most 127 characters
         if title == self._tray_title_shown:
             return
         try:
@@ -501,29 +738,51 @@ class App:
         self.ui_queue.put((kind, payload))
 
     def _process_queue(self):
+        # One bad message must never stop this loop - otherwise the flag would freeze for good.
         try:
             while True:
-                kind, payload = self.ui_queue.get_nowait()
-                if kind == "data":
-                    self.state, self.checking = payload, False
-                    self._render()
-                elif kind == "toggle":
-                    self.toggle_window()
-                elif kind == "copy":
-                    self.copy_ip()
-                elif kind == "refresh":
-                    self.monitor.refresh()
-                elif kind == "pin":
-                    self._on_tray_pin()
-                elif kind == "startup":
-                    self._on_tray_startup()
-                elif kind == "quit":
-                    self.quit()
-                    return
-        except queue.Empty:
-            pass
-        if not self.closing:
-            self.root.after(100, self._process_queue)
+                try:
+                    kind, payload = self.ui_queue.get_nowait()
+                except queue.Empty:
+                    break
+                try:
+                    if self._handle_message(kind, payload):
+                        return
+                except Exception:
+                    ipcore.log.exception("Could not handle the message %r", kind)
+        finally:
+            if not self.closing:
+                self.root.after(100, self._process_queue)
+
+    def _handle_message(self, kind, payload):
+        """Handles one message from another thread. Returns True when the program is quitting."""
+        if kind == "data":
+            self.state, self.checking = payload, False
+            self._render()
+        elif kind == "weather":
+            # a failed lookup keeps the old temperature; "no city" clears it
+            if payload is not None or not self._weather_wanted():
+                self.weather = payload
+            self._refresh_info()
+            self._apply_tray_title()
+        elif kind == "city":
+            self.choose_city()
+        elif kind == "cities":
+            self._city_results(*payload)
+        elif kind == "toggle":
+            self.toggle_window()
+        elif kind == "copy":
+            self.copy_ip()
+        elif kind == "refresh":
+            self.monitor.refresh()
+        elif kind == "pin":
+            self._on_tray_pin()
+        elif kind == "startup":
+            self._on_tray_startup()
+        elif kind == "quit":
+            self.quit()
+            return True
+        return False
 
     def _report_error(self, exc, val, tb):
         import traceback
@@ -533,7 +792,9 @@ class App:
         if self.closing:
             return
         self.closing = True
+        self.usage.save(force=True)
         self.monitor.stop()
+        self.weather_monitor.stop()
         if self.tray:
             try:
                 self.tray.stop()
