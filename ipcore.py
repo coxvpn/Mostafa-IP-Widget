@@ -17,7 +17,7 @@ from logging.handlers import RotatingFileHandler
 
 import requests
 
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 __author__ = "Mostafa Mandegari"
 
 APP_NAME = "Mostafa-IP-Widget"

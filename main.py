@@ -242,7 +242,10 @@ class TaskbarEmbed:
         right = (self._rect(u, wt, notify).left if notify else bar_r.right) - bar_r.left
         bar_h = bar_r.bottom - bar_r.top
         x = max(0, right - width - 2)
-        y = max(0, (bar_h - height) // 2)
+        y = 0
+        height = bar_h                      # as tall as the taskbar, so it blends in
+        self.height = bar_h
+        self.last_point = (bar_r.left + max(0, x - 4), bar_r.top + bar_h // 2)
         # 0x14 = no activate + no z-order change, 0x40 = show
         u.SetWindowPos(self.hwnd, None, x, y, width, height, 0x14 | 0x40)
         ox, oy, ow, oh = self.orig
@@ -250,6 +253,28 @@ class TaskbarEmbed:
         cur = self._rect(u, wt, self.rebar)
         if (cur.right - cur.left) != wanted:
             u.MoveWindow(self.rebar, ox, oy, wanted, oh, True)
+
+    def sample_color(self):
+        """The colour of the taskbar next to our window as '#rrggbb', or None."""
+        point = getattr(self, "last_point", None)
+        if not ipcore.IS_WINDOWS or not point:
+            return None
+        try:
+            user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
+            user32.GetDC.restype = ctypes.c_void_p
+            user32.ReleaseDC.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+            gdi32.GetPixel.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+            gdi32.GetPixel.restype = ctypes.c_uint32
+            dc = user32.GetDC(None)
+            try:
+                value = gdi32.GetPixel(dc, int(point[0]), int(point[1]))
+            finally:
+                user32.ReleaseDC(None, dc)
+            if value == 0xFFFFFFFF:
+                return None
+            return "#%02x%02x%02x" % (value & 0xFF, (value >> 8) & 0xFF, (value >> 16) & 0xFF)
+        except Exception:
+            return None
 
     def detach(self):
         """Gives the taskbar its space back. Safe to call any time, more than once."""
@@ -647,6 +672,15 @@ class App:
         if key == "strip_embed":
             self._embed_failed = False
         self._refresh_strip()
+        self._update_tray_menu()
+
+    def _update_tray_menu(self):
+        """The tray menu is built once; it must be rebuilt for its tick marks to show the new state."""
+        if self.tray:
+            try:
+                self.tray.update_menu()
+            except Exception:
+                ipcore.log.exception("Could not update the tray menu")
 
     def _toggle_setting(self, key):
         """Flips one of the on/off choices (used by the tray menu)."""
@@ -655,7 +689,7 @@ class App:
                "strip_embed": self.embed_var}.get(key)
         if var is None:
             return
-        var.set(not var.get())
+        var.set(not bool(self.settings.get(key)))      # flip what is really stored
         self._toggle_option(key, var)
 
     # ------------------------------------------------- bar beside the clock
@@ -682,9 +716,9 @@ class App:
         self.strip_box.pack(fill="both", expand=True)
         self.strip_flag = tk.Label(self.strip_box, bg=self.bg, bd=0)
         self.strip_text = tk.Label(self.strip_box, bg=self.bg, fg=self.fg, bd=0,
-                                   font=("Segoe UI", 9))
+                                   font=("Segoe UI", 11))
         # no flag here: the tray icon already shows it
-        self.strip_text.pack(side="left")
+        self.strip_text.pack(side="left", expand=True)
         for widget in (self.strip, self.strip_box, self.strip_flag, self.strip_text):
             widget.bind("<ButtonPress-1>", self._strip_press)
             widget.bind("<B1-Motion>", self._strip_move)
@@ -744,6 +778,26 @@ class App:
             self._place_strip()
         self._apply_embed()
 
+    def _match_taskbar_color(self):
+        """Paints the bar in the colour of the taskbar it sits in (and picks readable text)."""
+        if not self._embed.active:
+            return
+        color = self._embed.sample_color()
+        if not color or color == getattr(self, "_strip_color", None):
+            return
+        self._strip_color = color
+        red, green, blue = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+        text = "#ffffff" if (0.299 * red + 0.587 * green + 0.114 * blue) < 140 else "#111111"
+        self.strip.configure(bg=color)
+        self.strip_box.configure(bg=color, highlightbackground=color)
+        self.strip_text.configure(bg=color, fg=text)
+
+    def _restore_strip_colors(self):
+        self._strip_color = None
+        self.strip.configure(bg=self.bg)
+        self.strip_box.configure(bg=self.bg, highlightbackground=self.border)
+        self.strip_text.configure(bg=self.bg, fg=self.fg)
+
     def _apply_embed(self):
         """Builds the bar into the taskbar (or takes it out) according to the menu choice."""
         want = bool(self.settings.get("strip_embed")) and ipcore.IS_WINDOWS
@@ -753,10 +807,12 @@ class App:
             h = self.strip.winfo_reqheight()
             if self._embed.attach(self.strip, w, h):
                 self._embed_wanted_size = (w, h)
+                self._match_taskbar_color()
             else:
                 self._embed_failed = True       # do not retry every second
         elif not want and self._embed.active:
             self._embed.detach()
+            self._restore_strip_colors()
             self._strip_geometry = None
             self._place_strip()
 
@@ -793,6 +849,8 @@ class App:
             return
         if self._embed.active:
             self._embed.update(*self._embed_wanted_size)
+            if getattr(self, "_ticks", 0) % 30 == 0:      # the taskbar colour can change (theme)
+                self._match_taskbar_color()
             if not self._embed.active:       # Explorer restarted: try again from scratch
                 self._embed_failed = False
                 self._strip_geometry = None
@@ -939,6 +997,7 @@ class App:
             self.show_window()
         else:
             self.hide_window()
+        self._update_tray_menu()
 
     def _apply_opacity(self):
         value = self.opacity_var.get() / 100.0
@@ -949,6 +1008,7 @@ class App:
         wanted = bool(self.startup_var.get())
         if not ipcore.set_startup(wanted):
             self.startup_var.set(not wanted)  # it failed: undo the tick mark
+        self._update_tray_menu()
 
     def _on_tray_startup(self):
         self.startup_var.set(not ipcore.is_startup_enabled())
