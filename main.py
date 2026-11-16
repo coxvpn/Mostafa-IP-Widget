@@ -118,6 +118,41 @@ def work_area(root):
     return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
 
 
+def taskbar_slot(width, height):
+    """(x, y) that puts a width x height box on the taskbar, just left of the clock / tray icons.
+
+    None when the taskbar cannot be found or is not along the bottom or top edge.
+    """
+    if not ipcore.IS_WINDOWS:
+        return None
+    try:
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+        user32.FindWindowW.restype = wintypes.HWND
+        user32.FindWindowExW.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR]
+        user32.FindWindowExW.restype = wintypes.HWND
+        user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+        bar = user32.FindWindowW("Shell_TrayWnd", None)
+        if not bar:
+            return None
+        bar_rect = wintypes.RECT()
+        if not user32.GetWindowRect(bar, ctypes.byref(bar_rect)):
+            return None
+        if (bar_rect.right - bar_rect.left) < (bar_rect.bottom - bar_rect.top):
+            return None                       # a taskbar on the side: use the normal place
+        right_edge = bar_rect.right
+        notify = user32.FindWindowExW(bar, None, "TrayNotifyWnd", None)
+        notify_rect = wintypes.RECT()
+        if notify and user32.GetWindowRect(notify, ctypes.byref(notify_rect)):
+            right_edge = notify_rect.left
+        x = right_edge - width - 6
+        y = bar_rect.top + max(0, ((bar_rect.bottom - bar_rect.top) - height) // 2)
+        return x, y
+    except Exception:
+        return None
+
+
 class App:
     def __init__(self):
         self.settings = Settings().load()
@@ -220,6 +255,8 @@ class App:
             self._apply_tray_title()
             self._refresh_strip()
             self._ticks = getattr(self, "_ticks", 0) + 1
+            if self._ticks % 3 == 0:
+                self._keep_strip_on_top()
             if self._ticks % 60 == 0 and self.tray and getattr(self, "_tray_image", None) is not None:
                 self.tray.icon = self._tray_image  # draw it again, in case Windows lost it
         except Exception:
@@ -350,6 +387,7 @@ class App:
                                   command=lambda: self._toggle_option("show_usage", self.usage_var))
         self.menu.add_checkbutton(label="Show bar beside the clock", variable=self.strip_var,
                                   command=lambda: self._toggle_option("show_strip", self.strip_var))
+        self.menu.add_command(label="Put the bar back on the taskbar", command=self._reset_strip_position)
         self.menu.add_command(label="Choose city for weather...", command=self.choose_city)
         opacity_menu = tk.Menu(self.menu, tearoff=0)
         for pct in OPACITY_CHOICES:
@@ -585,15 +623,38 @@ class App:
         h = self.strip.winfo_reqheight()
         self._strip_w = w
         sx, sy = self.settings.get("strip_x"), self.settings.get("strip_y")
-        if sx is None or sy is None:       # first time: bottom right, just above the taskbar
-            _left, _top, right, bottom = work_area(self.root)
-            x, y = right - w - 8, bottom - h - 6
+        if sx is None or sy is None:       # not moved by hand: on the taskbar, left of the clock
+            slot = taskbar_slot(w, h)
+            if slot:
+                x, y = slot
+            else:                          # no taskbar found: bottom right, above it
+                _left, _top, right, bottom = work_area(self.root)
+                x, y = right - w - 8, bottom - h - 6
         else:
             x, y = sx, sy
         vx, vy, vw, vh = virtual_screen(self.root)
         x = max(vx, min(x, vx + vw - w))
         y = max(vy, min(y, vy + vh - h))
-        self.strip.geometry(f"{w}x{h}+{x}+{y}")
+        geometry = f"{w}x{h}+{x}+{y}"
+        if geometry != getattr(self, "_strip_geometry", None):
+            self._strip_geometry = geometry
+            self.strip.geometry(geometry)
+
+    def _keep_strip_on_top(self):
+        """The taskbar raises itself when used; put the bar back over it, and follow the tray's width."""
+        if self.closing or not self.settings.get("show_strip") or self.strip.state() == "withdrawn":
+            return
+        self.strip.attributes("-topmost", True)
+        self.strip.lift()
+        if self.settings.get("strip_x") is None:
+            self._place_strip()
+
+    def _reset_strip_position(self):
+        self.settings.set("strip_x", None, save=False)
+        self.settings.set("strip_y", None)
+        self._strip_geometry = None
+        self._strip_w = 0
+        self._refresh_strip()
 
     # ---------------------------------------------------------- city dialog
     def choose_city(self):
@@ -803,6 +864,7 @@ class App:
             MenuItem("Refresh now", lambda icon, item: self.post("refresh")),
             MenuItem("Show bar beside the clock", lambda icon, item: self.post("opt", "show_strip"),
                      checked=lambda item: bool(self.settings.get("show_strip"))),
+            MenuItem("Put the bar back on the taskbar", lambda icon, item: self.post("barreset")),
             MenuItem("Show weather", lambda icon, item: self.post("opt", "show_weather"),
                      checked=lambda item: bool(self.settings.get("show_weather"))),
             MenuItem("Show speed", lambda icon, item: self.post("opt", "show_speed"),
@@ -893,6 +955,8 @@ class App:
             self._refresh_info()
             self._apply_tray_title()
             self._refresh_strip()
+        elif kind == "barreset":
+            self._reset_strip_position()
         elif kind == "opt":
             self._toggle_setting(payload)
         elif kind == "city":
