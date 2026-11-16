@@ -258,5 +258,159 @@ class SpeedTests(unittest.TestCase):
         self.assertIsInstance(ipcore.read_counters(), dict)
 
 
+class NewSettingsTests(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.dir.name, "settings.json")
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def test_defaults(self):
+        s = ipcore.Settings(self.path).load()
+        self.assertTrue(s.get("show_speed"))
+        self.assertTrue(s.get("show_usage"))
+        self.assertTrue(s.get("show_weather"))
+        self.assertEqual(s.get("city_name"), "")
+        self.assertIsNone(s.get("city_lat"))
+
+    def test_city_roundtrip(self):
+        s = ipcore.Settings(self.path)
+        s.set("city_name", "\u062a\u0647\u0631\u0627\u0646")
+        s.set("city_lat", 35.69)
+        s.set("city_lon", 51.42)
+        again = ipcore.Settings(self.path).load()
+        self.assertEqual(again.get("city_name"), "\u062a\u0647\u0631\u0627\u0646")
+        self.assertEqual((again.get("city_lat"), again.get("city_lon")), (35.69, 51.42))
+
+    def test_bad_city_values(self):
+        with open(self.path, "w") as fh:
+            json.dump({"city_lat": 999, "city_lon": "abc", "city_name": 5, "show_speed": "no"}, fh)
+        s = ipcore.Settings(self.path).load()
+        self.assertIsNone(s.get("city_lat"))
+        self.assertIsNone(s.get("city_lon"))
+        self.assertEqual(s.get("city_name"), "")
+        self.assertTrue(s.get("show_speed"))
+
+
+class UsageTests(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.dir.name, "usage.json")
+        self.day = ["2026-11-15"]
+        self.now = [0.0]
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def make(self):
+        return ipcore.DailyUsage(self.path, today=lambda: self.day[0], clock=lambda: self.now[0])
+
+    def test_adds_up(self):
+        u = self.make()
+        u.add(1000, 10)
+        u.add(500, 5)
+        self.assertEqual((u.down, u.up), (1500, 15))
+
+    def test_survives_restart_same_day(self):
+        u = self.make()
+        u.add(1000, 10)
+        u.save(force=True)
+        again = self.make()
+        self.assertEqual((again.down, again.up), (1000, 10))
+
+    def test_new_day_starts_at_zero(self):
+        u = self.make()
+        u.add(1000, 10)
+        u.save(force=True)
+        self.day[0] = "2026-11-16"
+        self.assertEqual((self.make().down, self.make().up), (0, 0))
+        u.add(7, 1)
+        self.assertEqual((u.down, u.up), (7, 1))
+
+    def test_save_is_throttled(self):
+        u = self.make()
+        u.add(1, 1)
+        u.save()
+        self.assertFalse(os.path.exists(self.path))
+        self.now[0] = 31
+        u.save()
+        self.assertTrue(os.path.exists(self.path))
+
+    def test_negative_and_corrupt_input(self):
+        u = self.make()
+        u.add(-5, -5)
+        self.assertEqual((u.down, u.up), (0, 0))
+        with open(self.path, "w") as fh:
+            fh.write("garbage")
+        self.assertEqual(self.make().down, 0)
+
+    def test_speed_meter_reports_bytes_for_the_total(self):
+        readings = iter([{"Wi-Fi": (0, 0), "VPN": (0, 0)}, {"Wi-Fi": (110, 520), "VPN": (100, 500)}])
+        times = iter([0.0, 2.0])
+        m = ipcore.SpeedMeter(reader=lambda: next(readings), clock=lambda: next(times))
+        m.update()
+        down, up = m.update()
+        self.assertEqual((m.down_bytes, m.up_bytes), (520, 110))
+        self.assertEqual((down, up), (260.0, 55.0))
+
+    def test_format_bytes(self):
+        self.assertEqual(ipcore.format_bytes(0), "0 B")
+        self.assertEqual(ipcore.format_bytes(1536), "1.5 KB")
+        self.assertEqual(ipcore.format_bytes(5 * 1024 ** 2), "5.0 MB")
+        self.assertEqual(ipcore.format_bytes(3 * 1024 ** 3), "3.00 GB")
+
+
+class WeatherTests(unittest.TestCase):
+    CITY = {"results": [
+        {"name": "Tehran", "latitude": 35.69, "longitude": 51.42, "country": "Iran", "admin1": "Tehran"},
+        {"name": "Bad", "latitude": 999, "longitude": 0},
+        {"name": "", "latitude": 1, "longitude": 1},
+        {"latitude": 1},
+    ]}
+
+    def test_search_keeps_only_valid_results(self):
+        http = FakeHttp({ipcore.GEOCODE_URL: FakeResponse(self.CITY)})
+        found = ipcore.search_cities("Tehran", http)
+        self.assertEqual(len(found), 1)
+        self.assertEqual((found[0]["name"], found[0]["lat"], found[0]["lon"]), ("Tehran", 35.69, 51.42))
+
+    def test_search_no_match_vs_failure(self):
+        self.assertEqual(ipcore.search_cities("zzzz", FakeHttp({ipcore.GEOCODE_URL: FakeResponse({})})), [])
+        self.assertIsNone(ipcore.search_cities("Tehran", FakeHttp({})))
+        self.assertEqual(ipcore.search_cities(" a ", FakeHttp({})), [])
+
+    def test_weather(self):
+        payload = {"current": {"temperature_2m": 12.6, "weather_code": 3}}
+        http = FakeHttp({ipcore.FORECAST_URL: FakeResponse(payload)})
+        self.assertEqual(ipcore.fetch_weather(35.69, 51.42, http), {"temp": 12.6, "code": 3})
+
+    def test_weather_failures(self):
+        self.assertIsNone(ipcore.fetch_weather(1, 1, FakeHttp({})))
+        self.assertIsNone(ipcore.fetch_weather(1, 1, FakeHttp({ipcore.FORECAST_URL: FakeResponse({"x": 1})})))
+
+    def test_symbols_and_temperature(self):
+        self.assertEqual(ipcore.weather_symbol(0), "\u2600")
+        self.assertEqual(ipcore.weather_symbol(63), "\u2602")
+        self.assertEqual(ipcore.weather_symbol(75), "\u2744")
+        self.assertEqual(ipcore.weather_symbol(95), "\u26A1")
+        self.assertEqual(ipcore.weather_symbol(12345), "\u2601")
+        self.assertEqual(ipcore.format_temp(12.6), "13\u00B0C")
+        self.assertEqual(ipcore.format_temp(-0.4), "0\u00B0C")
+        self.assertEqual(ipcore.format_temp(-7.2), "-7\u00B0C")
+
+    def test_monitor(self):
+        seen = []
+        result = {"temp": 1.0, "code": 0}
+        m = ipcore.WeatherMonitor(seen.append, lambda: (1.0, 2.0), fetch=lambda lat, lon: result)
+        self.assertTrue(m.poll_once())
+        self.assertEqual(seen, [result])
+        failing = ipcore.WeatherMonitor(seen.append, lambda: (1.0, 2.0), fetch=lambda lat, lon: None)
+        self.assertFalse(failing.poll_once())
+        nothing = ipcore.WeatherMonitor(seen.append, lambda: None)
+        self.assertTrue(nothing.poll_once())
+        self.assertEqual(seen[-1], None)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,51 +1,24 @@
-# Mostafa-IP Info Widget
+# My IP Info Widget
 
 Created by Mostafa Mandegari (مصطفی ماندگاری).
 
 See your public IP address, country, city and internet provider in real time —
 on the desktop and in the system tray (Windows).
 
-Mostafa-IP Widget
+![](screenshots/MyIPWidget-dark.jpg)
+![](screenshots/MyIPWidget-light.jpg)
 
-نسخه جدید برنامه Mostafa-IP Widget برای سیستم‌عامل‌های ویندوز و اندروید منتشر شد.
-
-این برنامه برای نمایش و بررسی اطلاعات IP طراحی شده است.
-
-📥 فایل‌های دانلود
-
-نسخه ویندوز: فایل نصب برنامه برای Windows
-
-نسخه اندروید: فایل APK برای نصب روی گوشی‌های Android
-
-⚙️ راهنمای نصب
-
-ویندوز: فایل نصب را دانلود و اجرا کنید.
-
-اندروید: فایل APK را دانلود و نصب کنید. در صورت نیاز، اجازه نصب از منابع ناشناس را فعال کنید.
-
-از تنظیمات ویجت را به صفحه اصلی اضافه کنین
-
-🔄 بروزرسانی
-
-برای دریافت آخرین نسخه برنامه، همین صفحه را دنبال کنید.
-
-توجه: فایل مناسب سیستم‌عامل خود را دانلود کنید.
-
-
-<img width="591" height="1280" alt="1" src="https://github.com/user-attachments/assets/9e0a3683-810f-4308-b577-d415711659c8" />
-
-<img width="558" height="424" alt="2" src="https://github.com/user-attachments/assets/6bfcc017-99c3-42d2-959b-7b294e4e82f9" />
-
-
-
-
-## Features (v0.2.2)
+## Features (v0.3.0)
 
 - Country flag, IP address, and (optionally) city and provider
 - Lives in the tray: nothing sits on the desktop. Click the tray icon and a small pop-up
   appears next to the taskbar; it closes when you click elsewhere
 - Live download / upload speed in the pop-up and in the tray tooltip
   (with a VPN the traffic is counted once, not twice)
+- Weather (temperature and a symbol) for a city you choose yourself: right-click, "Choose city
+  for weather..." and search by name (Persian or English); data from Open-Meteo
+- Today's downloaded / uploaded volume (counted while the program runs, resets at midnight)
+- Speed, volume and weather can each be switched off from the right-click menu
 - A globe with a red slash shows when there is no internet
 - Right-click the pop-up for a menu: copy IP, refresh, opacity, keep on desktop, start with Windows, quit
 - "Keep on desktop" brings back the always-visible, draggable widget
@@ -59,7 +32,7 @@ Mostafa-IP Widget
 
 ## Install
 
-Download `MyIPWidget-Setup.exe` from the Releases page (or from the *Actions* tab →
+Download `Mostafa-IP-Widget-Setup.exe` from the Releases page (or from the *Actions* tab →
 latest run → *Artifacts*) and run it. No administrator rights needed.
 
 Settings and a small log file live in `%APPDATA%\MyIPWidget`.
@@ -73,7 +46,7 @@ python main.py
 
 ## Build the installer
 
-The workflow in `.github/workflows/build.yml` builds `MyIPWidget-Setup.exe` on GitHub
+The workflow in `.github/workflows/build.yml` builds `Mostafa-IP-Widget-Setup.exe` on GitHub
 (PyInstaller + Inno Setup). Run it from the *Actions* tab with *Run workflow*, or push a
 tag such as `v0.2.0` to publish a release automatically.
 
