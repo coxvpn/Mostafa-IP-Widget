@@ -19,6 +19,22 @@ object Prefs {
         prefs(context).edit().putBoolean("show_usage", value).apply()
     }
 
+    /** Live speed (and weather / volume) in a notification, with the icon in the status bar. */
+    fun showSpeedNotice(context: Context) = prefs(context).getBoolean("show_speed_notice", false)
+
+    fun setShowSpeedNotice(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("show_speed_notice", value).apply()
+    }
+
+    /** A second notification whose status-bar icon is the country code. */
+    fun showFlagNotice(context: Context) = prefs(context).getBoolean("show_flag_notice", false)
+
+    fun setShowFlagNotice(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("show_flag_notice", value).apply()
+    }
+
+    fun anyNotice(context: Context) = showSpeedNotice(context) || showFlagNotice(context)
+
     fun cityName(context: Context): String = prefs(context).getString("city_name", "") ?: ""
 
     fun cityLat(context: Context): Double? = prefs(context).getString("city_lat", null)?.toDoubleOrNull()

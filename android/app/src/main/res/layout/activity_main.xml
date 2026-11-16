@@ -98,6 +98,19 @@
         </LinearLayout>
 
         <CheckBox
+            android:id="@+id/check_speed_notice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/show_speed_notice" />
+
+        <CheckBox
+            android:id="@+id/check_flag_notice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/show_flag_notice" />
+
+        <CheckBox
             android:id="@+id/check_usage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

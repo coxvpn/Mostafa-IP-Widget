@@ -23,4 +23,9 @@
     <string name="grant_usage">Allow usage access (needed for data usage)</string>
     <string name="usage_today">Today: %1$s</string>
     <string name="usage_no_access">Data usage needs "usage access" - tap the button below and allow Mostafa-IP-Widget.</string>
+    <string name="notice_channel">Live speed and flag</string>
+    <string name="today_short">Today</string>
+    <string name="show_speed_notice">Show live speed in the notification bar</string>
+    <string name="show_flag_notice">Show the country in the notification bar (as letters)</string>
+    <string name="notice_denied">Notifications are not allowed, so nothing can be shown. Allow them in the phone settings.</string>
 </resources>

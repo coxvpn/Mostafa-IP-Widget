@@ -34,7 +34,7 @@ object IpLookup {
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS
-                setRequestProperty("User-Agent", "Mostafa-IP-Widget-Android/0.4.0")
+                setRequestProperty("User-Agent", "Mostafa-IP-Widget-Android/0.5.0")
             }
             if (conn.responseCode == 200) {
                 conn.inputStream.bufferedReader().use { it.readText() }.take(20000)

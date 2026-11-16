@@ -17,7 +17,7 @@ class IpWidget : AppWidgetProvider() {
     }
 
     override fun onDisabled(context: Context) {
-        NetWatch.stop(context)
+        if (!Prefs.anyNotice(context)) NetWatch.stop(context)
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -40,7 +40,7 @@ class IpWidget : AppWidgetProvider() {
             }
             // the system says the connection changed
             NetWatch.ACTION_NET -> {
-                if (!hasWidgets(context)) {
+                if (!hasWidgets(context) && !Prefs.anyNotice(context)) {
                     NetWatch.stop(context)
                     return
                 }
@@ -51,6 +51,7 @@ class IpWidget : AppWidgetProvider() {
                 }
             }
             Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> {
+                SpeedService.sync(context)
                 if (hasWidgets(context)) {
                     NetWatch.start(context)
                     val pending = goAsync()

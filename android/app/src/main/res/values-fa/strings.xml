@@ -23,4 +23,9 @@
     <string name="grant_usage">اجازه‌ی دسترسی به آمار مصرف (برای نمایش حجم)</string>
     <string name="usage_today">امروز: %1$s</string>
     <string name="usage_no_access">برای نمایش حجم مصرف، دکمه‌ی پایین را بزنید و به برنامه اجازه بدهید.</string>
+    <string name="notice_channel">سرعت لحظه‌ای و پرچم</string>
+    <string name="today_short">امروز</string>
+    <string name="show_speed_notice">نمایش سرعت لحظه‌ای در نوار اعلان بالای گوشی</string>
+    <string name="show_flag_notice">نمایش کشور در نوار اعلان (به‌صورت حروف)</string>
+    <string name="notice_denied">اجازه‌ی اعلان داده نشده، پس چیزی نشان داده نمی‌شود. در تنظیمات گوشی اجازه بدهید.</string>
 </resources>

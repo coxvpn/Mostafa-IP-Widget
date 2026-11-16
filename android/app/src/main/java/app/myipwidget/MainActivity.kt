@@ -1,11 +1,14 @@
 package app.myipwidget
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.format.Formatter
@@ -28,6 +31,8 @@ class MainActivity : Activity() {
     private lateinit var checkWeather: CheckBox
     private lateinit var checkUsage: CheckBox
     private lateinit var grantUsage: Button
+    private lateinit var checkSpeedNotice: CheckBox
+    private lateinit var checkFlagNotice: CheckBox
     private var currentIp: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,6 +64,18 @@ class MainActivity : Activity() {
             Prefs.setShowUsage(this, checked)
             updateExtras()
         }
+        checkSpeedNotice = findViewById(R.id.check_speed_notice)
+        checkFlagNotice = findViewById(R.id.check_flag_notice)
+        checkSpeedNotice.isChecked = Prefs.showSpeedNotice(this)
+        checkSpeedNotice.setOnCheckedChangeListener { _, checked ->
+            Prefs.setShowSpeedNotice(this, checked)
+            noticeChanged(checked)
+        }
+        checkFlagNotice.isChecked = Prefs.showFlagNotice(this)
+        checkFlagNotice.setOnCheckedChangeListener { _, checked ->
+            Prefs.setShowFlagNotice(this, checked)
+            noticeChanged(checked)
+        }
         findViewById<Button>(R.id.choose_city).setOnClickListener { askCity() }
         grantUsage.setOnClickListener {
             try {
@@ -79,6 +96,24 @@ class MainActivity : Activity() {
         // coming back from the usage-access settings page: use the new permission
         showExtras()
         updateExtras()
+    }
+
+    /** Starts / stops the notifications; from Android 13 the notification permission is needed first. */
+    private fun noticeChanged(turnedOn: Boolean) {
+        if (turnedOn && Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 5)
+        }
+        SpeedService.sync(this)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (grantResults.firstOrNull() != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, R.string.notice_denied, Toast.LENGTH_LONG).show()
+        }
+        SpeedService.sync(this)
     }
 
     private fun show(display: Display) {
