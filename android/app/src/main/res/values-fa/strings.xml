@@ -8,4 +8,19 @@
     <string name="refresh">به‌روزرسانی</string>
     <string name="copied">آی‌پی کپی شد</string>
     <string name="hint">برای کپی کردن، روی آی‌پی بزنید.\nبرای افزودن ویجت: روی یک جای خالی صفحه‌ی اصلی گوشی نگه دارید، «ویجت‌ها» و بعد «ویجت آی‌پی» را انتخاب کنید.\nبا زدن روی ویجت، به‌روز می‌شود.</string>
+    <string name="widget_settings">تنظیمات ویجت</string>
+    <string name="show_weather">نمایش دمای هوا</string>
+    <string name="show_usage">نمایش حجم مصرف امروز</string>
+    <string name="choose_city">انتخاب شهر</string>
+    <string name="no_city">شهری انتخاب نشده</string>
+    <string name="city_hint">نام شهر (فارسی یا انگلیسی)</string>
+    <string name="search">جستجو</string>
+    <string name="remove_city">حذف شهر</string>
+    <string name="searching">در حال جستجو...</string>
+    <string name="no_city_found">شهری پیدا نشد. املای دیگری را امتحان کنید.</string>
+    <string name="search_failed">جستجو انجام نشد. اتصال اینترنت را بررسی کنید.</string>
+    <string name="pick_city">شهر خود را انتخاب کنید</string>
+    <string name="grant_usage">اجازه‌ی دسترسی به آمار مصرف (برای نمایش حجم)</string>
+    <string name="usage_today">امروز: %1$s</string>
+    <string name="usage_no_access">برای نمایش حجم مصرف، دکمه‌ی پایین را بزنید و به برنامه اجازه بدهید.</string>
 </resources>

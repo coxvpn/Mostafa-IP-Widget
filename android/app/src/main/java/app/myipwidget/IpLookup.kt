@@ -28,7 +28,7 @@ object IpLookup {
     private val IP_SHAPE = Regex("^[0-9a-fA-F:.]{2,45}$")
 
     // ------------------------------------------------------------------ network
-    private fun httpGet(url: String): String? {
+    fun httpGet(url: String): String? {
         var conn: HttpURLConnection? = null
         return try {
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -48,7 +48,7 @@ object IpLookup {
         }
     }
 
-    private fun clean(value: String?, limit: Int = 60): String {
+    fun clean(value: String?, limit: Int = 60): String {
         val text = (value ?: "").filter { !it.isISOControl() }.trim().take(limit)
         return if (text == "null") "" else text
     }

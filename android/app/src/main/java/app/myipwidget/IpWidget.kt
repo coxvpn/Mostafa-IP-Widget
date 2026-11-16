@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import android.widget.RemoteViews
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -27,8 +28,13 @@ class IpWidget : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            // the button on the widget, or the delayed second look after a network change
-            ACTION_REFRESH, NetWatch.ACTION_LATER -> {
+            // the button on the widget: also look at the weather again if it is a few minutes old
+            ACTION_REFRESH -> {
+                val pending = goAsync()
+                refresh(context, BUTTON_WEATHER_AGE_MS) { pending.finish() }
+            }
+            // the delayed second look after a network change
+            NetWatch.ACTION_LATER -> {
                 val pending = goAsync()
                 refresh(context) { pending.finish() }
             }
@@ -57,6 +63,7 @@ class IpWidget : AppWidgetProvider() {
 
     companion object {
         const val ACTION_REFRESH = "app.myipwidget.REFRESH"
+        private const val BUTTON_WEATHER_AGE_MS = 2 * 60 * 1000L
 
         private val latest = AtomicInteger(0)
 
@@ -65,22 +72,41 @@ class IpWidget : AppWidgetProvider() {
             return manager.getAppWidgetIds(ComponentName(context, IpWidget::class.java)).isNotEmpty()
         }
 
+        private fun describeCached(context: Context): Display {
+            val cached = IpLookup.load(context)
+            return if (cached != null) IpLookup.describe(context, cached) else IpLookup.checking(context)
+        }
+
+        /** Draws the widget again from what is saved (after a setting changed). */
+        fun redrawFromCache(context: Context) {
+            render(context.applicationContext, describeCached(context.applicationContext))
+        }
+
         /**
          * Shows the last known values with a "busy" button at once, then looks up the IP on a
-         * background thread and updates every widget on the home screen.
+         * background thread and updates every widget on the home screen. The flag is drawn as soon
+         * as the IP is known; the weather and today's volume follow.
          */
-        fun refresh(context: Context, done: () -> Unit = {}) {
+        fun refresh(context: Context, weatherMaxAgeMs: Long = Weather.FRESH_MS, done: () -> Unit = {}) {
             val app = context.applicationContext
             val mine = latest.incrementAndGet()
 
-            val cached = IpLookup.load(app)
-            render(app, if (cached != null) IpLookup.describe(app, cached) else IpLookup.checking(app), busy = true)
+            render(app, describeCached(app), busy = true)
 
             Thread {
                 try {
                     val info = if (NetWatch.isOnline(app)) IpLookup.fetch() else null
                     if (info != null) IpLookup.save(app, info)
                     // a newer refresh may have started meanwhile; only the newest one may draw
+                    if (mine == latest.get()) {
+                        render(app, if (info != null) IpLookup.describe(app, info) else IpLookup.offline(app), busy = true)
+                    }
+                    try {
+                        if (info != null) Weather.refreshIfStale(app, weatherMaxAgeMs)
+                        Usage.update(app)
+                    } catch (e: Exception) {
+                        // the extras are optional
+                    }
                     if (mine == latest.get()) {
                         render(app, if (info != null) IpLookup.describe(app, info) else IpLookup.offline(app))
                     }
@@ -101,6 +127,17 @@ class IpWidget : AppWidgetProvider() {
             views.setTextViewText(R.id.ip, display.ip)
             views.setTextViewText(R.id.detail, display.detail)
             views.setTextViewText(R.id.refresh, if (busy) "…" else "↻")
+
+            // next to the flag: the weather and today's volume, as chosen in the app
+            val showWeather = Prefs.showWeather(context) && Prefs.hasCity(context)
+            val showUsage = Prefs.showUsage(context)
+            val weather = Weather.cached(context)
+            views.setViewVisibility(R.id.weather, if (showWeather) View.VISIBLE else View.GONE)
+            views.setTextViewText(R.id.weather, if (weather != null) Weather.format(weather) else "…")
+            views.setViewVisibility(R.id.usage, if (showUsage) View.VISIBLE else View.GONE)
+            views.setTextViewText(R.id.usage, Usage.format(context, Usage.cached(context)))
+            // keep the space, so the button stays at the right edge
+            views.setViewVisibility(R.id.info, if (showWeather || showUsage) View.VISIBLE else View.INVISIBLE)
 
             val refreshIntent = Intent(context, IpWidget::class.java).setAction(ACTION_REFRESH)
             val refreshPending = PendingIntent.getBroadcast(

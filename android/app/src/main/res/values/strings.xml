@@ -8,4 +8,19 @@
     <string name="refresh">Refresh now</string>
     <string name="copied">IP address copied</string>
     <string name="hint">Tap the IP address to copy it.\nTo add the widget: long-press an empty spot on your home screen, choose Widgets, then MyIP Widget.\nTap the widget to refresh it.</string>
+    <string name="widget_settings">Widget settings</string>
+    <string name="show_weather">Show the temperature</string>
+    <string name="show_usage">Show today's data usage</string>
+    <string name="choose_city">Choose city</string>
+    <string name="no_city">No city chosen</string>
+    <string name="city_hint">City name (Persian or English)</string>
+    <string name="search">Search</string>
+    <string name="remove_city">Remove city</string>
+    <string name="searching">Searching...</string>
+    <string name="no_city_found">No city found. Try another spelling.</string>
+    <string name="search_failed">Could not search. Check the internet connection.</string>
+    <string name="pick_city">Pick your city</string>
+    <string name="grant_usage">Allow usage access (needed for data usage)</string>
+    <string name="usage_today">Today: %1$s</string>
+    <string name="usage_no_access">Data usage needs "usage access" - tap the button below and allow MyIP Widget.</string>
 </resources>

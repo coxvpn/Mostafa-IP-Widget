@@ -1,11 +1,18 @@
 package app.myipwidget
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
+import android.text.format.Formatter
+import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 
@@ -15,6 +22,12 @@ class MainActivity : Activity() {
     private lateinit var ipView: TextView
     private lateinit var detailView: TextView
     private lateinit var refreshButton: Button
+    private lateinit var weatherNow: TextView
+    private lateinit var usageNow: TextView
+    private lateinit var cityName: TextView
+    private lateinit var checkWeather: CheckBox
+    private lateinit var checkUsage: CheckBox
+    private lateinit var grantUsage: Button
     private var currentIp: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,14 +38,47 @@ class MainActivity : Activity() {
         countryView = findViewById(R.id.country)
         ipView = findViewById(R.id.ip)
         detailView = findViewById(R.id.detail)
+        weatherNow = findViewById(R.id.weather_now)
+        usageNow = findViewById(R.id.usage_now)
+        cityName = findViewById(R.id.city_name)
+        checkWeather = findViewById(R.id.check_weather)
+        checkUsage = findViewById(R.id.check_usage)
+        grantUsage = findViewById(R.id.grant_usage)
 
         refreshButton = findViewById(R.id.refresh)
         refreshButton.setOnClickListener { refresh() }
         ipView.setOnClickListener { copyIp() }
 
+        checkWeather.isChecked = Prefs.showWeather(this)
+        checkWeather.setOnCheckedChangeListener { _, checked ->
+            Prefs.setShowWeather(this, checked)
+            updateExtras()
+        }
+        checkUsage.isChecked = Prefs.showUsage(this)
+        checkUsage.setOnCheckedChangeListener { _, checked ->
+            Prefs.setShowUsage(this, checked)
+            updateExtras()
+        }
+        findViewById<Button>(R.id.choose_city).setOnClickListener { askCity() }
+        grantUsage.setOnClickListener {
+            try {
+                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            } catch (e: Exception) {
+                // no such settings page on this phone
+            }
+        }
+
         val cached = IpLookup.load(this)
         show(if (cached != null) IpLookup.describe(this, cached) else IpLookup.checking(this))
+        showExtras()
         refresh()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // coming back from the usage-access settings page: use the new permission
+        showExtras()
+        updateExtras()
     }
 
     private fun show(display: Display) {
@@ -41,6 +87,44 @@ class MainActivity : Activity() {
         countryView.text = display.title
         ipView.text = display.ip
         detailView.text = display.detail
+    }
+
+    /** Fills in the weather, today's volume, the city name and the permission button from what is saved. */
+    private fun showExtras() {
+        val weather = Weather.cached(this)
+        weatherNow.text = if (Prefs.hasCity(this) && weather != null) Weather.format(weather) else ""
+        weatherNow.visibility = if (weatherNow.text.isEmpty()) View.GONE else View.VISIBLE
+
+        cityName.text = if (Prefs.hasCity(this)) Prefs.cityName(this) else getString(R.string.no_city)
+
+        val hasAccess = Usage.hasAccess(this)
+        grantUsage.visibility = if (hasAccess) View.GONE else View.VISIBLE
+        val used = Usage.cached(this)
+        usageNow.text = when {
+            !hasAccess -> getString(R.string.usage_no_access)
+            used != null -> getString(
+                R.string.usage_today,
+                "↓ " + Formatter.formatShortFileSize(this, used.first) +
+                    "   ↑ " + Formatter.formatShortFileSize(this, used.second),
+            )
+            else -> ""
+        }
+        usageNow.visibility = if (usageNow.text.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    /** Looks up the weather / volume in the background, then redraws this screen and the widget. */
+    private fun updateExtras(weatherMaxAgeMs: Long = 2 * 60 * 1000L) {
+        val app = applicationContext
+        Thread {
+            try {
+                Weather.refreshIfStale(app, weatherMaxAgeMs)
+                Usage.update(app)
+            } catch (e: Exception) {
+                // optional extras
+            }
+            IpWidget.redrawFromCache(app)
+            runOnUiThread { if (!isFinishing) showExtras() }
+        }.start()
     }
 
     private fun refresh() {
@@ -57,7 +141,60 @@ class MainActivity : Activity() {
                 }
             }
             IpWidget.render(app, display)
+            updateExtras()
         }.start()
+    }
+
+    // ---------------------------------------------------------------- the city
+    private fun askCity() {
+        val input = EditText(this)
+        input.hint = getString(R.string.city_hint)
+        input.setSingleLine()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.choose_city)
+            .setView(input)
+            .setPositiveButton(R.string.search) { _, _ -> searchCity(input.text.toString()) }
+            .setNeutralButton(R.string.remove_city) { _, _ ->
+                Prefs.clearCity(this)
+                showExtras()
+                updateExtras()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun searchCity(query: String) {
+        Toast.makeText(this, R.string.searching, Toast.LENGTH_SHORT).show()
+        Thread {
+            val results = Weather.search(query)
+            runOnUiThread {
+                if (isFinishing) return@runOnUiThread
+                when {
+                    results == null -> Toast.makeText(this, R.string.search_failed, Toast.LENGTH_LONG).show()
+                    results.isEmpty() -> Toast.makeText(this, R.string.no_city_found, Toast.LENGTH_LONG).show()
+                    else -> showCityList(results)
+                }
+            }
+        }.start()
+    }
+
+    private fun showCityList(cities: List<City>) {
+        val labels = cities.map { c ->
+            listOf(c.name, c.region, c.country).filter { it.isNotEmpty() }.joinToString(" - ")
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.pick_city)
+            .setItems(labels) { _, index -> chooseCity(cities[index]) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun chooseCity(city: City) {
+        Prefs.setCity(this, city.name, city.lat, city.lon)
+        Prefs.setShowWeather(this, true)
+        checkWeather.isChecked = true
+        showExtras()
+        updateExtras(0L)
     }
 
     private fun copyIp() {
