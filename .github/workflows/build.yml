@@ -24,8 +24,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # PyInstaller's ready-made launcher is the thing antivirus programs most often
-          # flag. Building it from source here gives every release a unique launcher.
           pip install --no-binary pyinstaller pyinstaller
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Building PyInstaller from source failed; using the ready-made one."
@@ -38,7 +36,7 @@ jobs:
 
       - name: Build the program
         run: >
-          pyinstaller --noconfirm --clean --windowed --noupx --name MyIPWidget
+          pyinstaller --noconfirm --clean --windowed --noupx --name Mostafa-IP-Widget
           --hidden-import psutil
           --icon assets/images/icon.ico
           --version-file version_info.txt
@@ -50,7 +48,7 @@ jobs:
         shell: pwsh
         run: |
           $env:MYIP_SELFTEST_REPORT = Join-Path $PWD "selftest.txt"
-          $p = Start-Process -FilePath "dist\MyIPWidget\MyIPWidget.exe" -ArgumentList "--selftest" -Wait -PassThru
+          $p = Start-Process -FilePath "dist\Mostafa-IP-Widget\Mostafa-IP-Widget.exe" -ArgumentList "--selftest" -Wait -PassThru
           if (Test-Path $env:MYIP_SELFTEST_REPORT) { Get-Content $env:MYIP_SELFTEST_REPORT }
           if ($p.ExitCode -ne 0) { throw "Self-test failed with exit code $($p.ExitCode)" }
 
@@ -64,11 +62,11 @@ jobs:
       - name: Keep the installer (download it from the run page)
         uses: actions/upload-artifact@v4
         with:
-          name: MyIPWidget-Setup
-          path: installer_output/MyIPWidget-Setup.exe
+          name: Mostafa-IP-Widget-Setup
+          path: installer_output/Mostafa-IP-Widget-Setup.exe
 
       - name: Publish a release (only when a version tag is pushed)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: installer_output/MyIPWidget-Setup.exe
+          files: installer_output/Mostafa-IP-Widget-Setup.exe
