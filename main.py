@@ -154,6 +154,7 @@ class App:
         self._build_colors()
         self._build_widgets()
         self._build_menu()
+        self._build_strip()
 
         self.root.attributes("-topmost", True)
         self.root.attributes("-alpha", self.settings.get("opacity"))
@@ -217,6 +218,7 @@ class App:
             self.speed_lbl.config(text=self._speed_label_text(down, up))
             self.usage_lbl.config(text=self._usage_line)
             self._apply_tray_title()
+            self._refresh_strip()
             self._ticks = getattr(self, "_ticks", 0) + 1
             if self._ticks % 60 == 0 and self.tray and getattr(self, "_tray_image", None) is not None:
                 self.tray.icon = self._tray_image  # draw it again, in case Windows lost it
@@ -329,6 +331,7 @@ class App:
         self.weather_var = tk.BooleanVar(value=self.settings.get("show_weather"))
         self.speed_var = tk.BooleanVar(value=self.settings.get("show_speed"))
         self.usage_var = tk.BooleanVar(value=self.settings.get("show_usage"))
+        self.strip_var = tk.BooleanVar(value=self.settings.get("show_strip"))
         self.pin_var = tk.BooleanVar(value=self.pinned)
         self.startup_var = tk.BooleanVar(value=ipcore.is_startup_enabled())
         self.opacity_var = tk.IntVar(value=self._nearest_opacity())
@@ -345,6 +348,8 @@ class App:
                                   command=lambda: self._toggle_option("show_speed", self.speed_var))
         self.menu.add_checkbutton(label="Show today's data usage", variable=self.usage_var,
                                   command=lambda: self._toggle_option("show_usage", self.usage_var))
+        self.menu.add_checkbutton(label="Show bar beside the clock", variable=self.strip_var,
+                                  command=lambda: self._toggle_option("show_strip", self.strip_var))
         self.menu.add_command(label="Choose city for weather...", command=self.choose_city)
         opacity_menu = tk.Menu(self.menu, tearoff=0)
         for pct in OPACITY_CHOICES:
@@ -477,6 +482,118 @@ class App:
             self.weather_monitor.refresh()
         self._refresh_info()
         self._apply_tray_title()
+        self._strip_w = 0          # let the bar shrink / grow to the new content
+        self._refresh_strip()
+
+    def _toggle_setting(self, key):
+        """Flips one of the on/off choices (used by the tray menu)."""
+        var = {"show_weather": self.weather_var, "show_speed": self.speed_var,
+               "show_usage": self.usage_var, "show_strip": self.strip_var}.get(key)
+        if var is None:
+            return
+        var.set(not var.get())
+        self._toggle_option(key, var)
+
+    # ------------------------------------------------- bar beside the clock
+    def _build_strip(self):
+        """A small always-visible bar: flag + weather + speed + today's volume."""
+        self._image = None
+        self._strip_w = 0
+        self._strip_shown = None
+        self._strip_flag_key = None
+        self._strip_photo = None
+        self._strip_moved = False
+        self._strip_off = (0, 0)
+        self.strip = tk.Toplevel(self.root)
+        self.strip.withdraw()
+        self.strip.overrideredirect(True)
+        self.strip.attributes("-topmost", True)
+        self.strip.attributes("-alpha", 0.92)
+        self.strip.configure(bg=self.bg)
+        self.strip_box = tk.Frame(self.strip, bg=self.bg, highlightthickness=1,
+                                  highlightbackground=self.border, padx=6, pady=2)
+        self.strip_box.pack(fill="both", expand=True)
+        self.strip_flag = tk.Label(self.strip_box, bg=self.bg, bd=0)
+        self.strip_text = tk.Label(self.strip_box, bg=self.bg, fg=self.fg, bd=0,
+                                   font=("Segoe UI", 9))
+        self.strip_flag.pack(side="left")
+        self.strip_text.pack(side="left", padx=(6, 0))
+        for widget in (self.strip, self.strip_box, self.strip_flag, self.strip_text):
+            widget.bind("<ButtonPress-1>", self._strip_press)
+            widget.bind("<B1-Motion>", self._strip_move)
+            widget.bind("<ButtonRelease-1>", self._strip_release)
+            widget.bind("<Button-3>", self._show_menu)
+
+    def _strip_press(self, event):
+        self._strip_off = (event.x_root - self.strip.winfo_x(), event.y_root - self.strip.winfo_y())
+        self._strip_moved = False
+
+    def _strip_move(self, event):
+        self._strip_moved = True
+        x, y = event.x_root - self._strip_off[0], event.y_root - self._strip_off[1]
+        self.strip.geometry(f"+{x}+{y}")
+
+    def _strip_release(self, event):
+        if self._strip_moved:     # dragged: remember where it was left
+            self.settings.set("strip_x", self.strip.winfo_x(), save=False)
+            self.settings.set("strip_y", self.strip.winfo_y())
+        else:                     # a plain click opens / closes the pop-up
+            self.toggle_window()
+
+    def _strip_content(self):
+        parts = []
+        if self._weather_wanted():
+            if self.weather:
+                parts.append(f"{ipcore.weather_symbol(self.weather['code'])} "
+                             f"{ipcore.format_temp(self.weather['temp'])}")
+            else:
+                parts.append("...")
+        if self.settings.get("show_speed"):
+            parts.append(self._speed_line)
+        if self.settings.get("show_usage"):
+            parts.append(self._usage_line)
+        return "   |   ".join(parts)
+
+    def _refresh_strip(self):
+        if self.closing:
+            return
+        if not self.settings.get("show_strip"):
+            if self.strip.state() != "withdrawn":
+                self.strip.withdraw()
+            return
+        changed = False
+        text = self._strip_content()
+        if text != self._strip_shown:
+            self._strip_shown = text
+            self.strip_text.config(text=text)
+            changed = True
+        if self._image is not None and id(self._image) != self._strip_flag_key:
+            self._strip_flag_key = id(self._image)
+            size = max(16, int(self.flag_px * 0.55))
+            self._strip_photo = ImageTk.PhotoImage(self._image.resize((size, size), Image.LANCZOS))
+            self.strip_flag.config(image=self._strip_photo)
+            changed = True
+        if self.strip.state() == "withdrawn":
+            changed = True
+            self.strip.deiconify()
+        if changed:
+            self._place_strip()
+
+    def _place_strip(self):
+        self.strip.update_idletasks()
+        w = max(self._strip_w, self.strip.winfo_reqwidth())   # never shrink while running: no jitter
+        h = self.strip.winfo_reqheight()
+        self._strip_w = w
+        sx, sy = self.settings.get("strip_x"), self.settings.get("strip_y")
+        if sx is None or sy is None:       # first time: bottom right, just above the taskbar
+            _left, _top, right, bottom = work_area(self.root)
+            x, y = right - w - 8, bottom - h - 6
+        else:
+            x, y = sx, sy
+        vx, vy, vw, vh = virtual_screen(self.root)
+        x = max(vx, min(x, vx + vw - w))
+        y = max(vy, min(y, vy + vh - h))
+        self.strip.geometry(f"{w}x{h}+{x}+{y}")
 
     # ---------------------------------------------------------- city dialog
     def choose_city(self):
@@ -642,6 +759,7 @@ class App:
             detail = " - ".join(p for p in (state["city"], state["isp"]) if p)
             image = load_flag_image(state["code"])
 
+        self._image = image
         self._update_tray(image, ip, country)  # first: the tray must follow even if the pop-up fails
         self._flag_photo = ImageTk.PhotoImage(image.resize((self.flag_px, self.flag_px), Image.LANCZOS))
         self.flag_lbl.config(image=self._flag_photo)
@@ -653,6 +771,7 @@ class App:
         else:
             self.detail_lbl.grid_remove()
 
+        self._refresh_strip()
         if self._is_visible() and not self.pinned:
             self._place_window()  # the height may have changed
 
@@ -682,6 +801,14 @@ class App:
             MenuItem("Show / Hide", lambda icon, item: self.post("toggle"), default=True),
             MenuItem("Copy IP address", lambda icon, item: self.post("copy")),
             MenuItem("Refresh now", lambda icon, item: self.post("refresh")),
+            MenuItem("Show bar beside the clock", lambda icon, item: self.post("opt", "show_strip"),
+                     checked=lambda item: bool(self.settings.get("show_strip"))),
+            MenuItem("Show weather", lambda icon, item: self.post("opt", "show_weather"),
+                     checked=lambda item: bool(self.settings.get("show_weather"))),
+            MenuItem("Show speed", lambda icon, item: self.post("opt", "show_speed"),
+                     checked=lambda item: bool(self.settings.get("show_speed"))),
+            MenuItem("Show today's data usage", lambda icon, item: self.post("opt", "show_usage"),
+                     checked=lambda item: bool(self.settings.get("show_usage"))),
             MenuItem("Choose city for weather...", lambda icon, item: self.post("city")),
             MenuItem("Keep on desktop", lambda icon, item: self.post("pin"),
                      checked=lambda item: self.pinned),
@@ -765,6 +892,9 @@ class App:
                 self.weather = payload
             self._refresh_info()
             self._apply_tray_title()
+            self._refresh_strip()
+        elif kind == "opt":
+            self._toggle_setting(payload)
         elif kind == "city":
             self.choose_city()
         elif kind == "cities":

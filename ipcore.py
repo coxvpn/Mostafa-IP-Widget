@@ -17,7 +17,7 @@ from logging.handlers import RotatingFileHandler
 
 import requests
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __author__ = "Mostafa Mandegari"
 
 APP_NAME = "Mostafa-IP-Widget"
@@ -73,6 +73,9 @@ DEFAULT_SETTINGS = {
     "show_speed": True,
     "show_usage": True,     # today's downloaded / uploaded volume
     "show_weather": True,   # only shown once a city has been chosen
+    "show_strip": True,     # the small always-visible bar beside the clock
+    "strip_x": None,
+    "strip_y": None,
     "city_name": "",
     "city_lat": None,
     "city_lon": None,
@@ -83,7 +86,7 @@ def _validate(key, value):
     """Return a safe value for a setting, or the default if it is invalid."""
     default = DEFAULT_SETTINGS[key]
     try:
-        if key in ("x", "y"):
+        if key in ("x", "y", "strip_x", "strip_y"):
             if value is None:
                 return None
             if isinstance(value, bool):
@@ -93,7 +96,7 @@ def _validate(key, value):
             return min(1.0, max(0.2, float(value)))
         if key == "interval":
             return min(300, max(5, int(value)))
-        if key in ("show_details", "pinned", "show_speed", "show_usage", "show_weather"):
+        if key in ("show_details", "pinned", "show_speed", "show_usage", "show_weather", "show_strip"):
             return value if isinstance(value, bool) else default
         if key == "city_name":
             return _clean(value, 60) if isinstance(value, str) else default
