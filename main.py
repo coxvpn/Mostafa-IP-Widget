@@ -4,6 +4,7 @@ By default nothing sits on the desktop: click the tray icon and a small pop-up
 appears next to the taskbar. "Keep on desktop" in the menu gives the old
 always-visible widget back.
 """
+import atexit
 import ctypes
 import os
 import queue
@@ -151,6 +152,123 @@ def taskbar_slot(width, height):
         return x, y
     except Exception:
         return None
+
+
+class TaskbarEmbed:
+    """Builds one of our windows into the Windows taskbar, between the task buttons and the clock.
+
+    Works on Windows 10 (the taskbar there is a normal window that accepts children). It makes the
+    task-button area a little shorter to make room, and puts everything back on detach().
+    """
+
+    def __init__(self):
+        self.hwnd = None
+        self.bar = None
+        self.rebar = None
+        self.orig = None          # the task-button area before we shrank it: (x, y, w, h)
+        self.active = False
+
+    @staticmethod
+    def _api():
+        from ctypes import wintypes
+        u = ctypes.windll.user32
+        u.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+        u.FindWindowW.restype = wintypes.HWND
+        u.FindWindowExW.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR]
+        u.FindWindowExW.restype = wintypes.HWND
+        u.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+        u.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+        u.GetAncestor.restype = wintypes.HWND
+        u.SetParent.argtypes = [wintypes.HWND, wintypes.HWND]
+        u.SetParent.restype = wintypes.HWND
+        u.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+        u.GetWindowLongW.restype = ctypes.c_long
+        u.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
+        u.SetWindowLongW.restype = ctypes.c_long
+        u.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+                                   ctypes.c_int, ctypes.c_int, wintypes.UINT]
+        u.MoveWindow.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                 ctypes.c_int, wintypes.BOOL]
+        u.IsWindow.argtypes = [wintypes.HWND]
+        return u, wintypes
+
+    def _rect(self, u, wintypes, hwnd):
+        r = wintypes.RECT()
+        if not u.GetWindowRect(hwnd, ctypes.byref(r)):
+            raise OSError("GetWindowRect failed")
+        return r
+
+    def attach(self, tk_window, width, height):
+        """Returns True when the window now lives inside the taskbar."""
+        if not ipcore.IS_WINDOWS:
+            return False
+        try:
+            u, wt = self._api()
+            bar = u.FindWindowW("Shell_TrayWnd", None)
+            rebar = u.FindWindowExW(bar, None, "ReBarWindow32", None) if bar else None
+            if not bar or not rebar:
+                return False                     # Windows 11 / unusual taskbar: not supported
+            bar_r = self._rect(u, wt, bar)
+            if (bar_r.right - bar_r.left) < (bar_r.bottom - bar_r.top):
+                return False                     # a taskbar at the side
+            inner = tk_window.winfo_id()
+            hwnd = u.GetAncestor(inner, 2) or inner     # 2 = the top-level window
+            rb = self._rect(u, wt, rebar)
+            self.orig = (rb.left - bar_r.left, rb.top - bar_r.top, rb.right - rb.left, rb.bottom - rb.top)
+            self.hwnd, self.bar, self.rebar = hwnd, bar, rebar
+            style = u.GetWindowLongW(hwnd, -16)
+            u.SetWindowLongW(hwnd, -16, (style & ~0x80000000) | 0x40000000 | 0x10000000)  # popup -> child
+            if not u.SetParent(hwnd, bar):
+                u.SetWindowLongW(hwnd, -16, style)
+                return False
+            self.active = True
+            self.update(width, height)
+            return True
+        except Exception:
+            ipcore.log.exception("Could not build the bar into the taskbar")
+            self.detach()
+            return False
+
+    def update(self, width, height):
+        """Puts the window left of the clock and keeps the task buttons out of its way."""
+        if not self.active:
+            return
+        u, wt = self._api()
+        if not u.IsWindow(self.bar) or not u.IsWindow(self.hwnd):
+            self.active = False      # Explorer was restarted: the owner will re-attach
+            return
+        bar_r = self._rect(u, wt, self.bar)
+        notify = u.FindWindowExW(self.bar, None, "TrayNotifyWnd", None)
+        right = (self._rect(u, wt, notify).left if notify else bar_r.right) - bar_r.left
+        bar_h = bar_r.bottom - bar_r.top
+        x = max(0, right - width - 2)
+        y = max(0, (bar_h - height) // 2)
+        # 0x14 = no activate + no z-order change, 0x40 = show
+        u.SetWindowPos(self.hwnd, None, x, y, width, height, 0x14 | 0x40)
+        ox, oy, ow, oh = self.orig
+        wanted = max(50, min(ow, x - ox - 2))
+        cur = self._rect(u, wt, self.rebar)
+        if (cur.right - cur.left) != wanted:
+            u.MoveWindow(self.rebar, ox, oy, wanted, oh, True)
+
+    def detach(self):
+        """Gives the taskbar its space back. Safe to call any time, more than once."""
+        if not ipcore.IS_WINDOWS or self.hwnd is None:
+            self.active = False
+            return
+        try:
+            u, wt = self._api()
+            if self.rebar and self.orig and u.IsWindow(self.rebar):
+                ox, oy, ow, oh = self.orig
+                u.MoveWindow(self.rebar, ox, oy, ow, oh, True)
+            if u.IsWindow(self.hwnd):
+                style = u.GetWindowLongW(self.hwnd, -16)
+                u.SetParent(self.hwnd, None)
+                u.SetWindowLongW(self.hwnd, -16, (style & ~0x40000000) | 0x80000000)
+        except Exception:
+            ipcore.log.exception("Could not take the bar out of the taskbar")
+        self.active = False
+        self.hwnd = self.bar = self.rebar = self.orig = None
 
 
 class App:
@@ -369,6 +487,7 @@ class App:
         self.speed_var = tk.BooleanVar(value=self.settings.get("show_speed"))
         self.usage_var = tk.BooleanVar(value=self.settings.get("show_usage"))
         self.strip_var = tk.BooleanVar(value=self.settings.get("show_strip"))
+        self.embed_var = tk.BooleanVar(value=self.settings.get("strip_embed"))
         self.pin_var = tk.BooleanVar(value=self.pinned)
         self.startup_var = tk.BooleanVar(value=ipcore.is_startup_enabled())
         self.opacity_var = tk.IntVar(value=self._nearest_opacity())
@@ -387,6 +506,10 @@ class App:
                                   command=lambda: self._toggle_option("show_usage", self.usage_var))
         self.menu.add_checkbutton(label="Show bar beside the clock", variable=self.strip_var,
                                   command=lambda: self._toggle_option("show_strip", self.strip_var))
+        if ipcore.IS_WINDOWS:
+            self.menu.add_checkbutton(label="Build the bar into the taskbar (Windows 10)",
+                                      variable=self.embed_var,
+                                      command=lambda: self._toggle_option("strip_embed", self.embed_var))
         self.menu.add_command(label="Put the bar back on the taskbar", command=self._reset_strip_position)
         self.menu.add_command(label="Choose city for weather...", command=self.choose_city)
         opacity_menu = tk.Menu(self.menu, tearoff=0)
@@ -521,12 +644,15 @@ class App:
         self._refresh_info()
         self._apply_tray_title()
         self._strip_w = 0          # let the bar shrink / grow to the new content
+        if key == "strip_embed":
+            self._embed_failed = False
         self._refresh_strip()
 
     def _toggle_setting(self, key):
         """Flips one of the on/off choices (used by the tray menu)."""
         var = {"show_weather": self.weather_var, "show_speed": self.speed_var,
-               "show_usage": self.usage_var, "show_strip": self.strip_var}.get(key)
+               "show_usage": self.usage_var, "show_strip": self.strip_var,
+               "strip_embed": self.embed_var}.get(key)
         if var is None:
             return
         var.set(not var.get())
@@ -542,6 +668,9 @@ class App:
         self._strip_photo = None
         self._strip_moved = False
         self._strip_off = (0, 0)
+        self._embed = TaskbarEmbed()
+        self._embed_wanted_size = (0, 0)
+        atexit.register(self._embed.detach)    # never leave the taskbar shortened
         self.strip = tk.Toplevel(self.root)
         self.strip.withdraw()
         self.strip.overrideredirect(True)
@@ -554,8 +683,8 @@ class App:
         self.strip_flag = tk.Label(self.strip_box, bg=self.bg, bd=0)
         self.strip_text = tk.Label(self.strip_box, bg=self.bg, fg=self.fg, bd=0,
                                    font=("Segoe UI", 9))
-        self.strip_flag.pack(side="left")
-        self.strip_text.pack(side="left", padx=(6, 0))
+        # no flag here: the tray icon already shows it
+        self.strip_text.pack(side="left")
         for widget in (self.strip, self.strip_box, self.strip_flag, self.strip_text):
             widget.bind("<ButtonPress-1>", self._strip_press)
             widget.bind("<B1-Motion>", self._strip_move)
@@ -567,6 +696,8 @@ class App:
         self._strip_moved = False
 
     def _strip_move(self, event):
+        if self._embed.active:
+            return                   # built into the taskbar: it cannot be dragged
         self._strip_moved = True
         x, y = event.x_root - self._strip_off[0], event.y_root - self._strip_off[1]
         self.strip.geometry(f"+{x}+{y}")
@@ -596,6 +727,7 @@ class App:
         if self.closing:
             return
         if not self.settings.get("show_strip"):
+            self._embed.detach()
             if self.strip.state() != "withdrawn":
                 self.strip.withdraw()
             return
@@ -605,16 +737,27 @@ class App:
             self._strip_shown = text
             self.strip_text.config(text=text)
             changed = True
-        if self._image is not None and id(self._image) != self._strip_flag_key:
-            self._strip_flag_key = id(self._image)
-            size = max(16, int(self.flag_px * 0.55))
-            self._strip_photo = ImageTk.PhotoImage(self._image.resize((size, size), Image.LANCZOS))
-            self.strip_flag.config(image=self._strip_photo)
-            changed = True
         if self.strip.state() == "withdrawn":
             changed = True
             self.strip.deiconify()
         if changed:
+            self._place_strip()
+        self._apply_embed()
+
+    def _apply_embed(self):
+        """Builds the bar into the taskbar (or takes it out) according to the menu choice."""
+        want = bool(self.settings.get("strip_embed")) and ipcore.IS_WINDOWS
+        if want and not self._embed.active and not getattr(self, "_embed_failed", False):
+            self.strip.update_idletasks()
+            w = max(self._strip_w, self.strip.winfo_reqwidth())
+            h = self.strip.winfo_reqheight()
+            if self._embed.attach(self.strip, w, h):
+                self._embed_wanted_size = (w, h)
+            else:
+                self._embed_failed = True       # do not retry every second
+        elif not want and self._embed.active:
+            self._embed.detach()
+            self._strip_geometry = None
             self._place_strip()
 
     def _place_strip(self):
@@ -622,6 +765,10 @@ class App:
         w = max(self._strip_w, self.strip.winfo_reqwidth())   # never shrink while running: no jitter
         h = self.strip.winfo_reqheight()
         self._strip_w = w
+        if self._embed.active:
+            self._embed_wanted_size = (w, h)
+            self._embed.update(w, h)
+            return
         sx, sy = self.settings.get("strip_x"), self.settings.get("strip_y")
         if sx is None or sy is None:       # not moved by hand: on the taskbar, left of the clock
             slot = taskbar_slot(w, h)
@@ -643,6 +790,12 @@ class App:
     def _keep_strip_on_top(self):
         """The taskbar raises itself when used; put the bar back over it, and follow the tray's width."""
         if self.closing or not self.settings.get("show_strip") or self.strip.state() == "withdrawn":
+            return
+        if self._embed.active:
+            self._embed.update(*self._embed_wanted_size)
+            if not self._embed.active:       # Explorer restarted: try again from scratch
+                self._embed_failed = False
+                self._strip_geometry = None
             return
         self.strip.attributes("-topmost", True)
         self.strip.lift()
@@ -864,6 +1017,10 @@ class App:
             MenuItem("Refresh now", lambda icon, item: self.post("refresh")),
             MenuItem("Show bar beside the clock", lambda icon, item: self.post("opt", "show_strip"),
                      checked=lambda item: bool(self.settings.get("show_strip"))),
+            MenuItem("Build the bar into the taskbar (Windows 10)",
+                     lambda icon, item: self.post("opt", "strip_embed"),
+                     checked=lambda item: bool(self.settings.get("strip_embed")),
+                     visible=ipcore.IS_WINDOWS),
             MenuItem("Put the bar back on the taskbar", lambda icon, item: self.post("barreset")),
             MenuItem("Show weather", lambda icon, item: self.post("opt", "show_weather"),
                      checked=lambda item: bool(self.settings.get("show_weather"))),
@@ -986,6 +1143,7 @@ class App:
         if self.closing:
             return
         self.closing = True
+        self._embed.detach()
         self.usage.save(force=True)
         self.monitor.stop()
         self.weather_monitor.stop()

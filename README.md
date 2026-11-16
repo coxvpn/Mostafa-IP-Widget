@@ -66,3 +66,7 @@ the only complete fix.
 ## Version 0.4.0
 A small bar beside the clock is always visible: flag, temperature, live speed and today's volume.
 Turn each part on or off from the tray icon's right-click menu (or hide the bar). Drag the bar to move it.
+
+## Version 0.5.0
+Optional: "Build the bar into the taskbar (Windows 10)" in the tray menu puts the bar inside the
+taskbar itself, between the task buttons and the clock (like TrafficMonitor). Not for Windows 11.

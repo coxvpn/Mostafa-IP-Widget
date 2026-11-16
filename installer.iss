@@ -1,6 +1,6 @@
 ; Inno Setup script - builds Mostafa-IP-Widget-Setup.exe from the PyInstaller output in dist\Mostafa-IP-Widget
 #define AppName "Mostafa-IP-Widget"
-#define AppVersion "0.4.1"
+#define AppVersion "0.5.1"
 #define AppExe "Mostafa-IP-Widget.exe"
 ; The build step may have produced the program under its new or its old folder name; accept both.
 #if DirExists("dist\Mostafa-IP-Widget")

@@ -17,7 +17,7 @@ from logging.handlers import RotatingFileHandler
 
 import requests
 
-__version__ = "0.4.1"
+__version__ = "0.5.1"
 __author__ = "Mostafa Mandegari"
 
 APP_NAME = "Mostafa-IP-Widget"
@@ -74,6 +74,7 @@ DEFAULT_SETTINGS = {
     "show_usage": True,     # today's downloaded / uploaded volume
     "show_weather": True,   # only shown once a city has been chosen
     "show_strip": True,     # the small always-visible bar beside the clock
+    "strip_embed": False,   # Windows 10: build the bar into the taskbar itself (opt-in)
     "strip_x": None,
     "strip_y": None,
     "city_name": "",
@@ -96,7 +97,7 @@ def _validate(key, value):
             return min(1.0, max(0.2, float(value)))
         if key == "interval":
             return min(300, max(5, int(value)))
-        if key in ("show_details", "pinned", "show_speed", "show_usage", "show_weather", "show_strip"):
+        if key in ("show_details", "pinned", "show_speed", "show_usage", "show_weather", "show_strip", "strip_embed"):
             return value if isinstance(value, bool) else default
         if key == "city_name":
             return _clean(value, 60) if isinstance(value, str) else default
