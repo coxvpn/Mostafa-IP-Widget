@@ -50,4 +50,34 @@
     <string name="battery_allow">Continue</string>
     <string name="battery_later">Not now</string>
     <string name="battery_button">Allow running without battery limits</string>
+    <string name="widget_rate_label">USD rate</string>
+    <string name="widget_wifi_label" translatable="false">Wi-Fi</string>
+    <string name="widget_sim_label" translatable="false">SIM</string>
+    <string name="widget_azan_prefix">To %1$s</string>
+    <string name="azan_fajr">Fajr</string>
+    <string name="azan_dhuhr">Dhuhr</string>
+    <string name="azan_maghrib">Maghrib</string>
+    <string name="notice_azan">%1$s %2$s (%3$s left)</string>
+    <string name="show_aqi">Show the air quality (AQI)</string>
+    <string name="show_prayer">Show the time left to the next prayer call (Shia times, uses the chosen city)</string>
+    <string name="show_notice_temp">Temperature</string>
+    <string name="show_notice_rate">Dollar rate</string>
+    <string name="show_notice_usage">Today\'s data usage</string>
+    <string name="show_notice_prayer">Time left to the next prayer call</string>
+    <string name="section_show">What to show</string>
+    <string name="section_city">City</string>
+    <string name="city_help">Used for the temperature, the air quality and the prayer times.</string>
+    <string name="section_notice_content">What the notification text holds</string>
+    <string name="section_permissions">Permissions</string>
+    <string name="no_city_for_azan">Choose a city to see the prayer times.</string>
+    <string name="theme_title">Widget background</string>
+    <string name="theme_button">Background: %1$s</string>
+    <string-array name="theme_names">
+        <item>Automatic (follows the phone)</item>
+        <item>Dark</item>
+        <item>Light</item>
+        <item>Glass</item>
+        <item>Night blue</item>
+        <item>Forest green</item>
+    </string-array>
 </resources>

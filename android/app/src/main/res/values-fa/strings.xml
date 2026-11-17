@@ -50,4 +50,32 @@
     <string name="battery_allow">ادامه</string>
     <string name="battery_later">فعلاً نه</string>
     <string name="battery_button">اجازه‌ی اجرا بدون محدودیت باتری</string>
+    <string name="widget_rate_label">نرخ دلار</string>
+    <string name="widget_azan_prefix">تا اذان %1$s</string>
+    <string name="azan_fajr">صبح</string>
+    <string name="azan_dhuhr">ظهر</string>
+    <string name="azan_maghrib">مغرب</string>
+    <string name="notice_azan">اذان %1$s %2$s (%3$s مانده)</string>
+    <string name="show_aqi">نمایش شاخص آلودگی هوا (AQI)</string>
+    <string name="show_prayer">نمایش مانده تا اذان بعدی (وقت شیعه، با شهر انتخاب‌شده)</string>
+    <string name="show_notice_temp">دمای هوا</string>
+    <string name="show_notice_rate">نرخ دلار</string>
+    <string name="show_notice_usage">حجم مصرف امروز</string>
+    <string name="show_notice_prayer">مانده تا اذان بعدی</string>
+    <string name="section_show">چه چیزهایی نشان داده شود</string>
+    <string name="section_city">شهر</string>
+    <string name="city_help">برای دمای هوا، آلودگی هوا و وقت اذان استفاده می‌شود.</string>
+    <string name="section_notice_content">متن اعلان شامل چه چیزی باشد</string>
+    <string name="section_permissions">دسترسی‌ها</string>
+    <string name="no_city_for_azan">برای دیدن وقت اذان، یک شهر انتخاب کنید.</string>
+    <string name="theme_title">پس‌زمینه‌ی ویجت</string>
+    <string name="theme_button">پس‌زمینه: %1$s</string>
+    <string-array name="theme_names">
+        <item>خودکار (مطابق گوشی)</item>
+        <item>تیره</item>
+        <item>روشن</item>
+        <item>شیشه‌ای</item>
+        <item>آبی شب</item>
+        <item>سبز جنگلی</item>
+    </string-array>
 </resources>

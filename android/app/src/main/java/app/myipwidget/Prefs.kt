@@ -52,6 +52,52 @@ object Prefs {
         prefs(context).edit().putBoolean("compact_notice", value).apply()
     }
 
+
+    /** Background style of the widget: 0 follows the phone (light / dark), then dark, light, glass, blue, green. */
+    fun theme(context: Context) = prefs(context).getInt("theme", 0).coerceIn(0, 5)
+
+    fun setTheme(context: Context, value: Int) {
+        prefs(context).edit().putInt("theme", value).apply()
+    }
+
+    // ---- widget: more things to show
+    fun showAqi(context: Context) = prefs(context).getBoolean("show_aqi", true)
+
+    fun setShowAqi(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("show_aqi", value).apply()
+    }
+
+    fun showPrayer(context: Context) = prefs(context).getBoolean("show_prayer", true)
+
+    fun setShowPrayer(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("show_prayer", value).apply()
+    }
+
+    // ---- notification: what the text under the speed holds
+    fun noticeTemp(context: Context) = prefs(context).getBoolean("notice_temp", true)
+
+    fun setNoticeTemp(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("notice_temp", value).apply()
+    }
+
+    fun noticeRate(context: Context) = prefs(context).getBoolean("notice_rate", true)
+
+    fun setNoticeRate(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("notice_rate", value).apply()
+    }
+
+    fun noticeUsage(context: Context) = prefs(context).getBoolean("notice_usage", true)
+
+    fun setNoticeUsage(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("notice_usage", value).apply()
+    }
+
+    fun noticePrayer(context: Context) = prefs(context).getBoolean("notice_prayer", true)
+
+    fun setNoticePrayer(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("notice_prayer", value).apply()
+    }
+
     fun anyNotice(context: Context) = showSpeedNotice(context) || showFlagNotice(context)
 
     fun cityName(context: Context): String = prefs(context).getString("city_name", "") ?: ""

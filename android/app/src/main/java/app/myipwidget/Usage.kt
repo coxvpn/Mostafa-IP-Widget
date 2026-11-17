@@ -82,6 +82,11 @@ object Usage {
     fun wifiLine(context: Context, value: Today?): String =
         context.getString(R.string.label_wifi) + " " + size(context, value?.wifi ?: -1L)
 
+    /** Just the number, for the widget (its label is a separate line). */
+    fun wifiValue(context: Context, value: Today?): String = size(context, value?.wifi ?: -1L)
+
+    fun simValue(context: Context, value: Today?): String = size(context, value?.mobile ?: -1L)
+
     fun simLine(context: Context, value: Today?): String =
         context.getString(R.string.label_sim) + " " + size(context, value?.mobile ?: -1L)
 

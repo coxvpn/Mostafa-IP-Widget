@@ -100,38 +100,102 @@
                 android:text="@string/section_widget"
                 android:textSize="16sp"
                 android:textStyle="bold" />
-
             <Button
                 android:id="@+id/add_widget"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="@string/add_widget" />
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="@string/widget_help"
                 android:textSize="13sp" />
+        </LinearLayout>
 
-            <Button
-                android:id="@+id/battery"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/card_bg"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/battery_button" />
+                android:text="@string/section_show"
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
+            <Button
+                android:id="@+id/choose_theme"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" />
             <CheckBox
                 android:id="@+id/check_weather"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="8dp"
                 android:text="@string/show_weather" />
+            <CheckBox
+                android:id="@+id/check_aqi"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/show_aqi" />
+            <CheckBox
+                android:id="@+id/check_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/show_date" />
+            <CheckBox
+                android:id="@+id/check_prayer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/show_prayer" />
+            <CheckBox
+                android:id="@+id/check_rate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/show_rate" />
+            <CheckBox
+                android:id="@+id/check_usage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/show_usage" />
+        </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/card_bg"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/section_city"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/city_help"
+                android:textSize="13sp" />
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -148,33 +212,6 @@
                     android:layout_marginStart="12dp"
                     android:textSize="15sp" />
             </LinearLayout>
-
-            <CheckBox
-                android:id="@+id/check_rate"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/show_rate" />
-
-            <CheckBox
-                android:id="@+id/check_date"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/show_date" />
-
-            <CheckBox
-                android:id="@+id/check_usage"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/show_usage" />
-
-            <Button
-                android:id="@+id/grant_usage"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/grant_usage" />
         </LinearLayout>
 
         <LinearLayout
@@ -191,41 +228,95 @@
                 android:text="@string/section_notice"
                 android:textSize="16sp"
                 android:textStyle="bold" />
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="@string/notice_help"
                 android:textSize="13sp" />
-
             <CheckBox
                 android:id="@+id/check_speed_notice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="@string/show_speed_notice" />
-
             <CheckBox
                 android:id="@+id/check_flag_notice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:text="@string/show_flag_notice" />
-
             <CheckBox
                 android:id="@+id/check_compact"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:text="@string/compact_notice" />
-
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="@string/section_notice_content"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+            <CheckBox
+                android:id="@+id/check_notice_temp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/show_notice_temp" />
+            <CheckBox
+                android:id="@+id/check_notice_rate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/show_notice_rate" />
+            <CheckBox
+                android:id="@+id/check_notice_usage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/show_notice_usage" />
+            <CheckBox
+                android:id="@+id/check_notice_prayer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/show_notice_prayer" />
             <Button
                 android:id="@+id/notice_settings"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="12dp"
                 android:text="@string/notice_settings" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/card_bg"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/section_permissions"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+            <Button
+                android:id="@+id/grant_usage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/grant_usage" />
+            <Button
+                android:id="@+id/battery"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/battery_button" />
         </LinearLayout>
 
         <LinearLayout
@@ -242,14 +333,12 @@
                 android:text="@string/section_about"
                 android:textSize="16sp"
                 android:textStyle="bold" />
-
             <Button
                 android:id="@+id/about"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="@string/about" />
-
             <TextView
                 android:id="@+id/hint"
                 android:layout_width="wrap_content"
@@ -258,5 +347,6 @@
                 android:text="@string/hint"
                 android:textSize="13sp" />
         </LinearLayout>
+
     </LinearLayout>
 </ScrollView>

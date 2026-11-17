@@ -7,7 +7,8 @@ import java.util.Locale
 
 data class City(val name: String, val region: String, val country: String, val lat: Double, val lon: Double)
 
-data class WeatherInfo(val temp: Double, val code: Int)
+/** [max] and [min] are today's highest and lowest temperature; [aqi] is the US air-quality index, or -1 when unknown. */
+data class WeatherInfo(val temp: Double, val code: Int, val max: Double, val min: Double, val aqi: Int)
 
 /** Temperature for a city the person chose (Open-Meteo: free, no key). */
 object Weather {
@@ -49,13 +50,38 @@ object Weather {
     fun fetch(lat: Double, lon: Double): WeatherInfo? {
         val url = "https://api.open-meteo.com/v1/forecast?latitude=" + "%.4f".format(Locale.US, lat) +
             "&longitude=" + "%.4f".format(Locale.US, lon) +
-            "&current=temperature_2m,weather_code&timezone=auto"
+            "&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min" +
+            "&forecast_days=1&timezone=auto"
         val body = IpLookup.httpGet(url) ?: return null
         return try {
-            val current = JSONObject(body).getJSONObject("current")
-            WeatherInfo(current.getDouble("temperature_2m"), current.getInt("weather_code"))
+            val json = JSONObject(body)
+            val current = json.getJSONObject("current")
+            val temp = current.getDouble("temperature_2m")
+            var max = temp
+            var min = temp
+            try {
+                val daily = json.getJSONObject("daily")
+                max = daily.getJSONArray("temperature_2m_max").getDouble(0)
+                min = daily.getJSONArray("temperature_2m_min").getDouble(0)
+            } catch (e: Exception) {
+                // only the current temperature is known
+            }
+            WeatherInfo(temp, current.getInt("weather_code"), max, min, fetchAqi(lat, lon))
         } catch (e: Exception) {
             null
+        }
+    }
+
+    /** Air quality (US AQI) from Open-Meteo; -1 when it cannot be read. */
+    private fun fetchAqi(lat: Double, lon: Double): Int {
+        val url = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=" + "%.4f".format(Locale.US, lat) +
+            "&longitude=" + "%.4f".format(Locale.US, lon) + "&current=us_aqi&timezone=auto"
+        val body = IpLookup.httpGet(url) ?: return -1
+        return try {
+            val value = JSONObject(body).getJSONObject("current").optDouble("us_aqi", Double.NaN)
+            if (value.isNaN() || value < 0) -1 else Math.round(value).toInt()
+        } catch (e: Exception) {
+            -1
         }
     }
 
@@ -66,7 +92,12 @@ object Weather {
     fun cached(context: Context): WeatherInfo? {
         val p = prefs(context)
         if (!p.contains("temp")) return null
-        return WeatherInfo(p.getFloat("temp", 0f).toDouble(), p.getInt("code", 0))
+        val temp = p.getFloat("temp", 0f).toDouble()
+        return WeatherInfo(
+            temp, p.getInt("code", 0),
+            p.getFloat("max", temp.toFloat()).toDouble(), p.getFloat("min", temp.toFloat()).toDouble(),
+            p.getInt("aqi", -1),
+        )
     }
 
     fun clear(context: Context) {
@@ -85,6 +116,9 @@ object Weather {
         p.edit()
             .putFloat("temp", info.temp.toFloat())
             .putInt("code", info.code)
+            .putFloat("max", info.max.toFloat())
+            .putFloat("min", info.min.toFloat())
+            .putInt("aqi", info.aqi)
             .putLong("time", System.currentTimeMillis())
             .apply()
     }
@@ -102,4 +136,20 @@ object Weather {
     }
 
     fun format(info: WeatherInfo): String = symbol(info.code) + " " + Math.round(info.temp) + "°C"
+
+    /** "▲12° ▼3°": today's highest and lowest. */
+    fun range(info: WeatherInfo): String = high(info) + " " + low(info)
+
+    fun high(info: WeatherInfo): String = "\u25B2" + Math.round(info.max) + "\u00B0"
+
+    fun low(info: WeatherInfo): String = "\u25BC" + Math.round(info.min) + "\u00B0"
+
+    /** 0 good, 1 moderate, 2 unhealthy for sensitive people, 3 unhealthy, 4 very unhealthy or worse. */
+    fun aqiLevel(aqi: Int): Int = when {
+        aqi <= 50 -> 0
+        aqi <= 100 -> 1
+        aqi <= 150 -> 2
+        aqi <= 200 -> 3
+        else -> 4
+    }
 }

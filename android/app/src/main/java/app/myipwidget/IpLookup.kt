@@ -37,7 +37,7 @@ object IpLookup {
                 useCaches = false
                 // no kept-alive connections: a half-closed one would sit in CLOSE_WAIT until it is reused
                 setRequestProperty("Connection", "close")
-                setRequestProperty("User-Agent", "Mostafa-IP-Widget-Android/1.3.3")
+                setRequestProperty("User-Agent", "Mostafa-IP-Widget-Android/1.5.0")
             }
             if (conn.responseCode == 200) {
                 conn.inputStream.use { readLimited(it, limit) }

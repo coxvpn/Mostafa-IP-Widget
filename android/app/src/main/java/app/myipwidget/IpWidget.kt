@@ -1,11 +1,13 @@
 package app.myipwidget
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
 import java.util.concurrent.atomic.AtomicInteger
@@ -34,6 +36,8 @@ class IpWidget : AppWidgetProvider() {
                 val pending = goAsync()
                 refresh(context, BUTTON_WEATHER_AGE_MS, force = true) { pending.finish() }
             }
+            // a prayer call has come: show the next one
+            ACTION_PRAYER -> redrawFromCache(context)
             // the delayed second look after a network change
             NetWatch.ACTION_LATER -> {
                 val pending = goAsync()
@@ -65,6 +69,10 @@ class IpWidget : AppWidgetProvider() {
 
     companion object {
         const val ACTION_REFRESH = "app.myipwidget.REFRESH"
+        const val ACTION_PRAYER = "app.myipwidget.PRAYER"
+        private val AQI_BACKGROUNDS = intArrayOf(
+            R.drawable.aqi_bg_0, R.drawable.aqi_bg_1, R.drawable.aqi_bg_2, R.drawable.aqi_bg_3, R.drawable.aqi_bg_4,
+        )
         private const val BUTTON_WEATHER_AGE_MS = 2 * 60 * 1000L
 
         private val latest = AtomicInteger(0)
@@ -138,6 +146,45 @@ class IpWidget : AppWidgetProvider() {
             }.start()
         }
 
+        private class Look(val bg: Int, val text: Int, val dim: Int, val up: Int, val down: Int, val prayer: Int, val button: Int)
+
+        private fun look(theme: Int): Look? = when (theme) {
+            1 -> Look(R.drawable.bg_theme_dark, 0xFFF2F2F2.toInt(), 0xFFA8A8A8.toInt(), 0xFFFF8A65.toInt(), 0xFF64B5F6.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark)
+            2 -> Look(R.drawable.bg_theme_light, 0xFF111111.toInt(), 0xFF5C5C5C.toInt(), 0xFFD84315.toInt(), 0xFF1565C0.toInt(), 0xFF8A5A00.toInt(), R.drawable.btn_on_light)
+            3 -> Look(R.drawable.bg_theme_glass, 0xFFFFFFFF.toInt(), 0xFFE8E8E8.toInt(), 0xFFFF8A65.toInt(), 0xFF90CAF9.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark)
+            4 -> Look(R.drawable.bg_theme_blue, 0xFFEAF1FF.toInt(), 0xFF9DB3D9.toInt(), 0xFFFF8A65.toInt(), 0xFF64B5F6.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark)
+            5 -> Look(R.drawable.bg_theme_green, 0xFFEAFFF0.toInt(), 0xFF9FCBB0.toInt(), 0xFFFF8A65.toInt(), 0xFF64B5F6.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark)
+            else -> null   // 0: the layout's own colours, which follow the phone's light / dark mode
+        }
+
+        private fun applyTheme(context: Context, views: RemoteViews) {
+            val look = look(Prefs.theme(context)) ?: return
+            views.setInt(R.id.root, "setBackgroundResource", look.bg)
+            for (id in intArrayOf(R.id.weather, R.id.date, R.id.country, R.id.ip, R.id.wifi, R.id.sim, R.id.refresh)) {
+                views.setTextColor(id, look.text)
+            }
+            for (id in intArrayOf(R.id.date2, R.id.detail, R.id.lbl_wifi, R.id.lbl_sim)) views.setTextColor(id, look.dim)
+            views.setTextColor(R.id.temp_high, look.up)
+            views.setTextColor(R.id.temp_low, look.down)
+            views.setTextColor(R.id.prayer_label, look.prayer)
+            views.setInt(R.id.prayer_time, "setTextColor", look.prayer)
+            views.setInt(R.id.refresh, "setBackgroundResource", look.button)
+        }
+
+        /** Wakes the widget up when the prayer call comes, so it can switch to the next one. */
+        private fun schedulePrayerRedraw(context: Context, at: Long) {
+            try {
+                val alarms = context.getSystemService(AlarmManager::class.java) ?: return
+                val pending = PendingIntent.getBroadcast(
+                    context, 9, Intent(context, IpWidget::class.java).setAction(ACTION_PRAYER),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                alarms.setAndAllowWhileIdle(AlarmManager.RTC, at + 2000L, pending)
+            } catch (e: Exception) {
+                // the widget is then redrawn at its next normal update
+            }
+        }
+
         fun render(context: Context, display: Display, busy: Boolean = false) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, IpWidget::class.java))
@@ -157,21 +204,61 @@ class IpWidget : AppWidgetProvider() {
             val showRate = Prefs.showRate(context)
             val weather = Weather.cached(context)
             val today = Usage.cached(context)
-            views.setViewVisibility(R.id.weather, if (showWeather) View.VISIBLE else View.GONE)
+
+            // temperature, high / low, air quality
+            views.setViewVisibility(R.id.weather_box, if (showWeather) View.VISIBLE else View.INVISIBLE)
             views.setTextViewText(R.id.weather, if (weather != null) Weather.format(weather) else "\u2026")
+            views.setViewVisibility(R.id.minmax, if (weather != null) View.VISIBLE else View.INVISIBLE)
+            if (weather != null) {
+                views.setTextViewText(R.id.temp_high, Weather.high(weather))
+                views.setTextViewText(R.id.temp_low, Weather.low(weather))
+            }
+            val aqi = weather?.aqi ?: -1
+            if (showWeather && Prefs.showAqi(context) && aqi >= 0) {
+                val level = Weather.aqiLevel(aqi)
+                views.setViewVisibility(R.id.aqi, View.VISIBLE)
+                views.setTextViewText(R.id.aqi, "AQI $aqi")
+                views.setInt(R.id.aqi, "setBackgroundResource", AQI_BACKGROUNDS[level])
+                views.setTextColor(R.id.aqi, if (level == 1 || level == 2) 0xFF222222.toInt() else 0xFFFFFFFF.toInt())
+            } else {
+                views.setViewVisibility(R.id.aqi, View.GONE)
+            }
+
+            // dates and the time left to the next prayer call
+            val azan = if (Prefs.showPrayer(context)) Prayer.next(context) else null
             views.setViewVisibility(R.id.date, if (showDate) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.date2, if (showDate) View.VISIBLE else View.GONE)
             views.setTextViewText(R.id.date, PersianDate.short())
             views.setTextViewText(R.id.date2, PersianDate.gregorian())
-            views.setViewVisibility(R.id.rate, if (showRate) View.VISIBLE else View.GONE)
-            views.setTextViewText(R.id.rate, Rate.format(Rate.cached(context)))
-            views.setViewVisibility(R.id.wifi, if (showUsage) View.VISIBLE else View.GONE)
-            views.setViewVisibility(R.id.sim, if (showUsage) View.VISIBLE else View.GONE)
-            views.setTextViewText(R.id.wifi, Usage.wifiLine(context, today))
-            views.setTextViewText(R.id.sim, Usage.simLine(context, today))
-            views.setViewVisibility(R.id.extra, if (showRate || showUsage) View.VISIBLE else View.GONE)
+            if (azan != null) {
+                val left = azan.time - System.currentTimeMillis()
+                views.setViewVisibility(R.id.prayer_row, View.VISIBLE)
+                views.setTextViewText(
+                    R.id.prayer_label,
+                    context.getString(R.string.widget_azan_prefix, context.getString(azan.nameRes)),
+                )
+                views.setChronometerCountDown(R.id.prayer_time, true)
+                views.setChronometer(R.id.prayer_time, SystemClock.elapsedRealtime() + left, null, true)
+                schedulePrayerRedraw(context, azan.time)
+            } else {
+                views.setViewVisibility(R.id.prayer_row, View.GONE)
+            }
             // keep the space, so the button stays at the right edge
-            views.setViewVisibility(R.id.info, if (showWeather || showDate) View.VISIBLE else View.INVISIBLE)
+            views.setViewVisibility(R.id.info, if (showDate || azan != null) View.VISIBLE else View.INVISIBLE)
+
+            // bottom row: three cells, each with a small label and a big value
+            views.setTextViewText(R.id.lbl_rate, context.getString(R.string.widget_rate_label))
+            views.setTextViewText(R.id.lbl_wifi, context.getString(R.string.widget_wifi_label))
+            views.setTextViewText(R.id.lbl_sim, context.getString(R.string.widget_sim_label))
+            views.setTextViewText(R.id.rate, Rate.format(Rate.cached(context)))
+            views.setTextViewText(R.id.wifi, Usage.wifiValue(context, today))
+            views.setTextViewText(R.id.sim, Usage.simValue(context, today))
+            views.setViewVisibility(R.id.cell_rate, if (showRate) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.cell_wifi, if (showUsage) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.cell_sim, if (showUsage) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.extra, if (showRate || showUsage) View.VISIBLE else View.GONE)
+
+            applyTheme(context, views)
 
             val refreshIntent = Intent(context, IpWidget::class.java).setAction(ACTION_REFRESH)
             val refreshPending = PendingIntent.getBroadcast(

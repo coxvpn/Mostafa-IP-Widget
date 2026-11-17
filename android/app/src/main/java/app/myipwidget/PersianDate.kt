@@ -35,7 +35,7 @@ object PersianDate {
         return Triple(jy, jm, jd)
     }
 
-    private fun digits(value: Int): String =
+    fun digits(value: Int): String =
         value.toString().map { if (it in '0'..'9') '۰' + (it - '0') else it }.joinToString("")
 
     /** For the widget: "دوشنبه ۲۵ آبان". */
@@ -47,11 +47,11 @@ object PersianDate {
 
     private val EN_MONTHS = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
-    /** "17/11(Nov)/2026": day / month number (month name) / year. */
+    /** "2026/11(Nov)/17": year / month number (month name) / day; read from the right it is day, month, year. */
     fun gregorian(now: Calendar = Calendar.getInstance()): String {
         val month = now.get(Calendar.MONTH)
-        return "%02d/%02d(%s)/%d".format(
-            java.util.Locale.US, now.get(Calendar.DAY_OF_MONTH), month + 1, EN_MONTHS[month], now.get(Calendar.YEAR),
+        return "%d/%02d(%s)/%02d".format(
+            java.util.Locale.US, now.get(Calendar.YEAR), month + 1, EN_MONTHS[month], now.get(Calendar.DAY_OF_MONTH),
         )
     }
 

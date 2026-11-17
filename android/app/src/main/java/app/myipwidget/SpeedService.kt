@@ -223,15 +223,28 @@ class SpeedService : Service() {
 
     private fun extrasLine(): String {
         val parts = ArrayList<String>()
-        if (Prefs.showWeather(this) && Prefs.hasCity(this)) {
+        if (Prefs.noticeTemp(this) && Prefs.hasCity(this)) {
             val weather = Weather.cached(this)
-            if (weather != null) parts.add(Weather.format(weather) + " " + Prefs.cityName(this))
+            if (weather != null) {
+                parts.add(Weather.format(weather) + "  " + Weather.range(weather) + "  " + Prefs.cityName(this))
+            }
         }
-        if (Prefs.showRate(this)) {
+        if (Prefs.noticeRate(this)) {
             val rate = Rate.cached(this)
             if (rate != null) parts.add(Rate.format(rate))
         }
-        if (Prefs.showUsage(this)) {
+        if (Prefs.noticePrayer(this)) {
+            val azan = Prayer.next(this)
+            if (azan != null) {
+                parts.add(
+                    getString(
+                        R.string.notice_azan, getString(azan.nameRes), Prayer.clockText(azan.time),
+                        Prayer.remainingText(azan.time - System.currentTimeMillis()),
+                    ),
+                )
+            }
+        }
+        if (Prefs.noticeUsage(this)) {
             val used = Usage.cached(this)
             if (used != null) {
                 parts.add(getString(R.string.today_short) + ": " + Usage.oneLine(this, used))
@@ -245,7 +258,7 @@ class SpeedService : Service() {
             Formatter.formatShortFileSize(this, up.toLong()) + "/s"
         val extras = if (Prefs.compactNotice(this)) "" else extrasLine()
         val builder = Notification.Builder(this, CHANNEL)
-            .setSmallIcon(speedIcon(down))
+            .setSmallIcon(speedIcon(down + up))
             .setContentTitle(title)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -282,13 +295,16 @@ class SpeedService : Service() {
     }
 
     // ------------------------------------------------------------------ icons
-    /** The download speed as a big number with a small unit under it (K or M): easy to read in the status bar. */
+    /**
+     * Download plus upload as one big number with a small unit under it (K or M). Below
+     * [MIN_SPEED] it shows 0, so the icon does not flicker with tiny background traffic.
+     */
     private fun speedIcon(bytesPerSecond: Double): Icon {
-        val kb = bytesPerSecond / 1024.0
+        val kb = if (bytesPerSecond < MIN_SPEED) 0.0 else bytesPerSecond / 1024.0
         val number: String
         val unit: String
         if (kb < 1000) {
-            number = if (kb < 10) "%.1f".format(java.util.Locale.US, kb) else kb.toInt().toString()
+            number = if (kb in 0.1..9.99) "%.1f".format(java.util.Locale.US, kb) else kb.toInt().toString()
             unit = "K"
         } else {
             val mb = kb / 1024.0
@@ -330,6 +346,7 @@ class SpeedService : Service() {
 
     companion object {
         const val CHANNEL = "speed"
+        private const val MIN_SPEED = 20 * 1024.0   // bytes per second: below this the icon shows 0
         private const val ID_MAIN = 41
         private const val ID_FLAG = 42
 

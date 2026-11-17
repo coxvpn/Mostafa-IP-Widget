@@ -87,6 +87,44 @@ class MainActivity : Activity() {
             Prefs.setShowDate(this, checked)
             updateExtras()
         }
+        findViewById<CheckBox>(R.id.check_aqi).apply {
+            isChecked = Prefs.showAqi(this@MainActivity)
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.setShowAqi(this@MainActivity, checked)
+                updateExtras(0L)
+            }
+        }
+        findViewById<CheckBox>(R.id.check_prayer).apply {
+            isChecked = Prefs.showPrayer(this@MainActivity)
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.setShowPrayer(this@MainActivity, checked)
+                if (checked && !Prefs.hasCity(this@MainActivity)) {
+                    Toast.makeText(this@MainActivity, R.string.no_city_for_azan, Toast.LENGTH_LONG).show()
+                }
+                updateExtras()
+            }
+        }
+        // what the notification text holds
+        findViewById<CheckBox>(R.id.check_notice_temp).apply {
+            isChecked = Prefs.noticeTemp(this@MainActivity)
+            setOnCheckedChangeListener { _, checked -> Prefs.setNoticeTemp(this@MainActivity, checked) }
+        }
+        findViewById<CheckBox>(R.id.check_notice_rate).apply {
+            isChecked = Prefs.noticeRate(this@MainActivity)
+            setOnCheckedChangeListener { _, checked -> Prefs.setNoticeRate(this@MainActivity, checked) }
+        }
+        findViewById<CheckBox>(R.id.check_notice_usage).apply {
+            isChecked = Prefs.noticeUsage(this@MainActivity)
+            setOnCheckedChangeListener { _, checked -> Prefs.setNoticeUsage(this@MainActivity, checked) }
+        }
+        findViewById<CheckBox>(R.id.check_notice_prayer).apply {
+            isChecked = Prefs.noticePrayer(this@MainActivity)
+            setOnCheckedChangeListener { _, checked -> Prefs.setNoticePrayer(this@MainActivity, checked) }
+        }
+        findViewById<Button>(R.id.choose_theme).apply {
+            text = getString(R.string.theme_button, themeName(Prefs.theme(this@MainActivity)))
+            setOnClickListener { askTheme(this) }
+        }
         findViewById<Button>(R.id.about).setOnClickListener { showAbout() }
         findViewById<Button>(R.id.add_widget).setOnClickListener { addWidget() }
         findViewById<CheckBox>(R.id.check_compact).apply {
@@ -121,6 +159,22 @@ class MainActivity : Activity() {
         refresh()
         findViewById<Button>(R.id.battery).setOnClickListener { requestUnrestricted() }
         askUnrestrictedOnce()
+    }
+
+    private fun themeName(index: Int): String = resources.getStringArray(R.array.theme_names)[index]
+
+    /** A list of looks for the widget background; the widget changes at once. */
+    private fun askTheme(button: Button) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.theme_title)
+            .setSingleChoiceItems(resources.getStringArray(R.array.theme_names), Prefs.theme(this)) { dialog, which ->
+                Prefs.setTheme(this, which)
+                button.text = getString(R.string.theme_button, themeName(which))
+                IpWidget.redrawFromCache(applicationContext)
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun isUnrestricted(): Boolean =
@@ -247,7 +301,12 @@ class MainActivity : Activity() {
         dateNow.text = PersianDate.full()
         dateNow.visibility = if (Prefs.showDate(this)) View.VISIBLE else View.GONE
         val weather = Weather.cached(this)
-        weatherNow.text = if (Prefs.hasCity(this) && weather != null) Weather.format(weather) else ""
+        weatherNow.text = if (Prefs.hasCity(this) && weather != null) {
+            Weather.format(weather) + "  " + Weather.range(weather) +
+                (if (weather.aqi >= 0) "  AQI " + weather.aqi else "")
+        } else {
+            ""
+        }
         weatherNow.visibility = if (weatherNow.text.isEmpty()) View.GONE else View.VISIBLE
 
         cityName.text = if (Prefs.hasCity(this)) Prefs.cityName(this) else getString(R.string.no_city)
