@@ -19,6 +19,12 @@ object Prefs {
         prefs(context).edit().putBoolean("show_usage", value).apply()
     }
 
+    fun showRate(context: Context) = prefs(context).getBoolean("show_rate", true)
+
+    fun setShowRate(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("show_rate", value).apply()
+    }
+
     fun showDate(context: Context) = prefs(context).getBoolean("show_date", true)
 
     fun setShowDate(context: Context, value: Boolean) {
@@ -37,6 +43,13 @@ object Prefs {
 
     fun setShowFlagNotice(context: Context, value: Boolean) {
         prefs(context).edit().putBoolean("show_flag_notice", value).apply()
+    }
+
+    /** One short line only: no weather / volume text under the speed. */
+    fun compactNotice(context: Context) = prefs(context).getBoolean("compact_notice", false)
+
+    fun setCompactNotice(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("compact_notice", value).apply()
     }
 
     fun anyNotice(context: Context) = showSpeedNotice(context) || showFlagNotice(context)

@@ -28,17 +28,21 @@ object IpLookup {
     private val IP_SHAPE = Regex("^[0-9a-fA-F:.]{2,45}$")
 
     // ------------------------------------------------------------------ network
-    fun httpGet(url: String): String? {
+    fun httpGet(url: String, limit: Int = 20000): String? {
         var conn: HttpURLConnection? = null
         return try {
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS
-                setRequestProperty("User-Agent", "Mostafa-IP-Widget-Android/1.1.0")
+                useCaches = false
+                // no kept-alive connections: a half-closed one would sit in CLOSE_WAIT until it is reused
+                setRequestProperty("Connection", "close")
+                setRequestProperty("User-Agent", "Mostafa-IP-Widget-Android/1.3.3")
             }
             if (conn.responseCode == 200) {
-                conn.inputStream.bufferedReader().use { it.readText() }.take(20000)
+                conn.inputStream.use { readLimited(it, limit) }
             } else {
+                conn.errorStream?.close()
                 null
             }
         } catch (e: Exception) {
@@ -46,6 +50,19 @@ object IpLookup {
         } finally {
             conn?.disconnect()
         }
+    }
+
+    private fun readLimited(input: java.io.InputStream, limit: Int): String {
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        var total = 0
+        while (total < limit) {
+            val n = input.read(buffer, 0, minOf(buffer.size, limit - total))
+            if (n < 0) break
+            out.write(buffer, 0, n)
+            total += n
+        }
+        return out.toString("UTF-8")
     }
 
     fun clean(value: String?, limit: Int = 60): String {

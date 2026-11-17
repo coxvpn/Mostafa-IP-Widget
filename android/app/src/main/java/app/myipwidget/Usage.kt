@@ -27,8 +27,20 @@ object Usage {
 
     private fun today(): String = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
 
-    /** (downloaded, uploaded) bytes since midnight, or null if it cannot be read. */
-    private fun query(context: Context): Pair<Long, Long>? {
+    /** Data used today: downloads and uploads added together, Wi-Fi and SIM kept apart (-1 = unknown). */
+    data class Today(val wifi: Long, val mobile: Long)
+
+    /** Bytes (down + up) of one kind of network since midnight, or -1 if it cannot be read. */
+    private fun total(manager: NetworkStatsManager, type: Int, from: Long, to: Long): Long {
+        return try {
+            val bucket = manager.querySummaryForDevice(type, null, from, to)
+            bucket.rxBytes + bucket.txBytes
+        } catch (e: Exception) {
+            -1L
+        }
+    }
+
+    private fun query(context: Context): Today? {
         if (!hasAccess(context)) return null
         val manager = context.getSystemService(NetworkStatsManager::class.java) ?: return null
         val midnight = Calendar.getInstance().apply {
@@ -38,21 +50,9 @@ object Usage {
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
         val now = System.currentTimeMillis()
-
-        var down = 0L
-        var up = 0L
-        var any = false
-        for (type in intArrayOf(ConnectivityManager.TYPE_WIFI, ConnectivityManager.TYPE_MOBILE)) {
-            try {
-                val bucket = manager.querySummaryForDevice(type, null, midnight, now)
-                down += bucket.rxBytes
-                up += bucket.txBytes
-                any = true
-            } catch (e: Exception) {
-                // this kind of network could not be read; count the other one
-            }
-        }
-        return if (any) Pair(down, up) else null
+        val wifi = total(manager, ConnectivityManager.TYPE_WIFI, midnight, now)
+        val mobile = total(manager, ConnectivityManager.TYPE_MOBILE, midnight, now)
+        return if (wifi < 0 && mobile < 0) null else Today(wifi, mobile)
     }
 
     private fun prefs(context: Context) =
@@ -65,20 +65,33 @@ object Usage {
         if (result == null) {
             edit.clear()
         } else {
-            edit.putString("date", today()).putLong("down", result.first).putLong("up", result.second)
+            edit.clear().putString("date", today()).putLong("wifi", result.wifi).putLong("mobile", result.mobile)
         }
         edit.apply()
     }
 
-    fun cached(context: Context): Pair<Long, Long>? {
+    fun cached(context: Context): Today? {
         val p = prefs(context)
-        if (p.getString("date", null) != today()) return null
-        return Pair(p.getLong("down", 0L), p.getLong("up", 0L))
+        if (p.getString("date", null) != today() || !p.contains("wifi")) return null
+        return Today(p.getLong("wifi", -1L), p.getLong("mobile", -1L))
     }
 
-    fun format(context: Context, value: Pair<Long, Long>?): String {
-        if (value == null) return "↓ —\n↑ —"
-        return "↓ " + Formatter.formatShortFileSize(context, value.first) +
-            "\n↑ " + Formatter.formatShortFileSize(context, value.second)
-    }
+    private fun size(context: Context, bytes: Long): String =
+        if (bytes < 0) "\u2014" else Formatter.formatShortFileSize(context, bytes)
+
+    fun wifiLine(context: Context, value: Today?): String =
+        context.getString(R.string.label_wifi) + " " + size(context, value?.wifi ?: -1L)
+
+    fun simLine(context: Context, value: Today?): String =
+        context.getString(R.string.label_sim) + " " + size(context, value?.mobile ?: -1L)
+
+    /** Two lines: "Wi-Fi 1.2 GB" and "SIM 340 MB". */
+    fun format(context: Context, value: Today?): String =
+        context.getString(R.string.label_wifi) + " " + size(context, value?.wifi ?: -1L) + "\n" +
+            context.getString(R.string.label_sim) + " " + size(context, value?.mobile ?: -1L)
+
+    /** One line for the app and the notification. */
+    fun oneLine(context: Context, value: Today): String =
+        context.getString(R.string.label_wifi) + " " + size(context, value.wifi) + "   " +
+            context.getString(R.string.label_sim) + " " + size(context, value.mobile)
 }

@@ -32,4 +32,22 @@
     <string name="about">درباره‌ی من و کد برنامه</string>
     <string name="source_code">کد برنامه</string>
     <string name="about_text">Mostafa-IP-Widget %1$s\n\nساخته‌شده توسط مصطفی ماندگاری.\nبر پایه‌ی پروژه‌ی متن‌باز My-IP-Widget از B3H1Z.\n\nکد برنامه:\n%2$s</string>
+    <string name="section_widget">ویجت صفحه‌ی اصلی</string>
+    <string name="section_notice">نوار اعلان (کنار ساعت)</string>
+    <string name="section_about">درباره</string>
+    <string name="add_widget">افزودن ویجت به صفحه‌ی اصلی</string>
+    <string name="widget_help">یک بار بزنید و پرسشی را که گوشی نشان می‌دهد تأیید کنید. با نگه داشتن روی ویجت می‌توانید اندازه‌اش را عوض کنید.</string>
+    <string name="pin_unsupported">این گوشی از اینجا نمی‌تواند اضافه کند. روی صفحه‌ی اصلی نگه دارید، «ویجت‌ها» و بعد «Mostafa-IP-Widget» را انتخاب کنید.</string>
+    <string name="notice_help">سرعت لحظه‌ای (و حروف کشور) را به‌صورت آیکون کوچک کنار ساعت نشان می‌دهد. گوشی همیشه یک ردیف هم برای آن در پنل بالا نگه می‌دارد؛ با دکمه‌ی آخر می‌توانید آن را بی‌صدا یا کوچک کنید.</string>
+    <string name="compact_notice">فشرده: ردیف پنل بالا تا جای ممکن کوتاه باشد</string>
+    <string name="notice_settings">تنظیمات گوشی برای این اعلان</string>
+    <string name="label_wifi">وای‌فای</string>
+    <string name="label_sim">سیم‌کارت</string>
+    <string name="show_rate">نمایش نرخ دلار</string>
+    <string name="rate_line">دلار: %1$s</string>
+    <string name="battery_title">برای به‌روز ماندن</string>
+    <string name="battery_message">برای اینکه پرچم هم‌زمان با عوض شدن اینترنت یا فیلترشکن عوض شود، گوشی نباید برنامه را به خواب ببرد. در صفحه‌ی بعد گزینه‌ی «اجازه دادن» را بزنید.</string>
+    <string name="battery_allow">ادامه</string>
+    <string name="battery_later">فعلاً نه</string>
+    <string name="battery_button">اجازه‌ی اجرا بدون محدودیت باتری</string>
 </resources>

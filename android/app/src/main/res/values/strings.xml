@@ -32,4 +32,22 @@
     <string name="about">About me and source code</string>
     <string name="source_code">Source code</string>
     <string name="about_text">Mostafa-IP-Widget %1$s\n\nMade by Mostafa Mandegari.\nBased on the open-source project My-IP-Widget by B3H1Z.\n\nSource code:\n%2$s</string>
+    <string name="section_widget">Home-screen widget</string>
+    <string name="section_notice">Notification bar (next to the clock)</string>
+    <string name="section_about">About</string>
+    <string name="add_widget">Add the widget to the home screen</string>
+    <string name="widget_help">One tap, then confirm on the question the phone shows. You can resize the widget by long-pressing it.</string>
+    <string name="pin_unsupported">This phone cannot add it from here. Long-press the home screen, choose Widgets, then Mostafa-IP-Widget.</string>
+    <string name="notice_help">Shows the live speed (and the country letters) as small icons beside the clock. The phone always lists such an icon in the pull-down panel too; use the last button to set it to silent or minimized there.</string>
+    <string name="compact_notice">Compact: keep the panel entry as short as possible</string>
+    <string name="notice_settings">Phone settings for this notification</string>
+    <string name="label_wifi">Wi-Fi</string>
+    <string name="label_sim">SIM</string>
+    <string name="show_rate">Show the dollar rate</string>
+    <string name="rate_line">Dollar: %1$s</string>
+    <string name="battery_title">Keep it updating</string>
+    <string name="battery_message">To change the flag the moment your connection or VPN changes, the phone must not put this app to sleep. On the next screen choose Allow.</string>
+    <string name="battery_allow">Continue</string>
+    <string name="battery_later">Not now</string>
+    <string name="battery_button">Allow running without battery limits</string>
 </resources>

@@ -45,12 +45,19 @@ object PersianDate {
         return "$weekday ${digits(day)} ${MONTHS[month - 1]}"
     }
 
-    /** For the app: "دوشنبه ۲۵ آبان ۱۴۰۵  -  2026-11-16". */
+    private val EN_MONTHS = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+    /** "17/11(Nov)/2026": day / month number (month name) / year. */
+    fun gregorian(now: Calendar = Calendar.getInstance()): String {
+        val month = now.get(Calendar.MONTH)
+        return "%02d/%02d(%s)/%d".format(
+            java.util.Locale.US, now.get(Calendar.DAY_OF_MONTH), month + 1, EN_MONTHS[month], now.get(Calendar.YEAR),
+        )
+    }
+
+    /** For the app: the Persian date with its year, and the Gregorian date on the next line. */
     fun full(now: Calendar = Calendar.getInstance()): String {
         val (year, _, _) = fromGregorian(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1, now.get(Calendar.DAY_OF_MONTH))
-        val gregorian = "%04d-%02d-%02d".format(
-            java.util.Locale.US, now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1, now.get(Calendar.DAY_OF_MONTH),
-        )
-        return short(now) + " " + digits(year) + "  -  " + gregorian
+        return short(now) + " " + digits(year) + "\n" + gregorian(now)
     }
 }

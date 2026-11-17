@@ -2,6 +2,8 @@ package app.myipwidget
 
 import android.Manifest
 import android.app.Activity
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -10,6 +12,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.text.format.Formatter
 import android.view.View
@@ -70,6 +73,13 @@ class MainActivity : Activity() {
             Prefs.setShowUsage(this, checked)
             updateExtras()
         }
+        findViewById<CheckBox>(R.id.check_rate).apply {
+            isChecked = Prefs.showRate(this@MainActivity)
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.setShowRate(this@MainActivity, checked)
+                updateExtras(0L)
+            }
+        }
         dateNow = findViewById(R.id.date_now)
         checkDate = findViewById(R.id.check_date)
         checkDate.isChecked = Prefs.showDate(this)
@@ -78,6 +88,12 @@ class MainActivity : Activity() {
             updateExtras()
         }
         findViewById<Button>(R.id.about).setOnClickListener { showAbout() }
+        findViewById<Button>(R.id.add_widget).setOnClickListener { addWidget() }
+        findViewById<CheckBox>(R.id.check_compact).apply {
+            isChecked = Prefs.compactNotice(this@MainActivity)
+            setOnCheckedChangeListener { _, checked -> Prefs.setCompactNotice(this@MainActivity, checked) }
+        }
+        findViewById<Button>(R.id.notice_settings).setOnClickListener { openNoticeSettings() }
         checkSpeedNotice = findViewById(R.id.check_speed_notice)
         checkFlagNotice = findViewById(R.id.check_flag_notice)
         checkSpeedNotice.isChecked = Prefs.showSpeedNotice(this)
@@ -103,6 +119,40 @@ class MainActivity : Activity() {
         show(if (cached != null) IpLookup.describe(this, cached) else IpLookup.checking(this))
         showExtras()
         refresh()
+        findViewById<Button>(R.id.battery).setOnClickListener { requestUnrestricted() }
+        askUnrestrictedOnce()
+    }
+
+    private fun isUnrestricted(): Boolean =
+        getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(packageName) ?: true
+
+    /** The phone's own question "let this app run without battery limits?" (otherwise it may be put to sleep). */
+    private fun requestUnrestricted() {
+        try {
+            startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    .setData(android.net.Uri.parse("package:$packageName")),
+            )
+        } catch (e: Exception) {
+            try {
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            } catch (e2: Exception) {
+                // no such settings page on this phone
+            }
+        }
+    }
+
+    /** Right after the first start: explain, then show the phone's question. Asked only once. */
+    private fun askUnrestrictedOnce() {
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        if (isUnrestricted() || prefs.getBoolean("battery_asked", false)) return
+        prefs.edit().putBoolean("battery_asked", true).apply()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.battery_title)
+            .setMessage(R.string.battery_message)
+            .setPositiveButton(R.string.battery_allow) { _, _ -> requestUnrestricted() }
+            .setNegativeButton(R.string.battery_later, null)
+            .show()
     }
 
     override fun onResume() {
@@ -128,6 +178,36 @@ class MainActivity : Activity() {
             Toast.makeText(this, R.string.notice_denied, Toast.LENGTH_LONG).show()
         }
         SpeedService.sync(this)
+    }
+
+    /** Asks the home screen to add the widget (the phone shows its own "add" question). */
+    private fun addWidget() {
+        val manager = getSystemService(AppWidgetManager::class.java)
+        val provider = ComponentName(this, IpWidget::class.java)
+        if (manager != null && manager.isRequestPinAppWidgetSupported) {
+            manager.requestPinAppWidget(provider, null, null)
+        } else {
+            Toast.makeText(this, R.string.pin_unsupported, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** The phone's own page for the speed notification: there it can be set to "silent" or collapsed. */
+    private fun openNoticeSettings() {
+        try {
+            startActivity(
+                Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    .putExtra(Settings.EXTRA_CHANNEL_ID, SpeedService.CHANNEL),
+            )
+        } catch (e: Exception) {
+            try {
+                startActivity(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName),
+                )
+            } catch (e2: Exception) {
+                // no such settings page on this phone
+            }
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -161,6 +241,9 @@ class MainActivity : Activity() {
 
     /** Fills in the weather, today's volume, the city name and the permission button from what is saved. */
     private fun showExtras() {
+        val rateView = findViewById<TextView>(R.id.rate_now)
+        rateView.text = getString(R.string.rate_line, Rate.format(Rate.cached(this)))
+        rateView.visibility = if (Prefs.showRate(this)) View.VISIBLE else View.GONE
         dateNow.text = PersianDate.full()
         dateNow.visibility = if (Prefs.showDate(this)) View.VISIBLE else View.GONE
         val weather = Weather.cached(this)
@@ -171,13 +254,13 @@ class MainActivity : Activity() {
 
         val hasAccess = Usage.hasAccess(this)
         grantUsage.visibility = if (hasAccess) View.GONE else View.VISIBLE
+        findViewById<Button>(R.id.battery).visibility = if (isUnrestricted()) View.GONE else View.VISIBLE
         val used = Usage.cached(this)
         usageNow.text = when {
             !hasAccess -> getString(R.string.usage_no_access)
             used != null -> getString(
                 R.string.usage_today,
-                "↓ " + Formatter.formatShortFileSize(this, used.first) +
-                    "   ↑ " + Formatter.formatShortFileSize(this, used.second),
+                Usage.oneLine(this, used),
             )
             else -> ""
         }
@@ -190,6 +273,7 @@ class MainActivity : Activity() {
         Thread {
             try {
                 Weather.refreshIfStale(app, weatherMaxAgeMs)
+                Rate.refreshIfStale(app, weatherMaxAgeMs)
                 Usage.update(app)
             } catch (e: Exception) {
                 // optional extras

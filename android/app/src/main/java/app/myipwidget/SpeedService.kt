@@ -44,6 +44,21 @@ class SpeedService : Service() {
     private var ticks = 0
     private var flagShown: String? = null
     private var asForeground = false
+    private val startTime = System.currentTimeMillis()   // fixed: the system orders notifications by it
+
+    private val netCallback = object : ConnectivityManager.NetworkCallback() {
+        private fun changed() {
+            val app = applicationContext
+            if (NetWatch.networkChanged(app)) {
+                IpWidget.refresh(app, force = true)
+                NetWatch.scheduleLater(app, 8000)
+            }
+        }
+
+        override fun onAvailable(network: android.net.Network) = changed()
+        override fun onLost(network: android.net.Network) = changed()
+        override fun onCapabilitiesChanged(network: android.net.Network, caps: NetworkCapabilities) = changed()
+    }
 
     private val tick = object : Runnable {
         override fun run() {
@@ -81,6 +96,15 @@ class SpeedService : Service() {
         NetWatch.start(applicationContext)
         if (!running) {
             running = true
+            try {
+                val request = android.net.NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                    .build()
+                getSystemService(ConnectivityManager::class.java).registerNetworkCallback(request, netCallback)
+            } catch (e: Exception) {
+                // the system wake-up through NetWatch still works
+            }
             lastRx = -1L
             handler.post { IpWidget.refresh(applicationContext) }   // make sure the IP / flag are current
             handler.post(tick)
@@ -90,6 +114,11 @@ class SpeedService : Service() {
 
     override fun onDestroy() {
         running = false
+        try {
+            getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(netCallback)
+        } catch (e: Exception) {
+            // it was not registered
+        }
         handler.removeCallbacksAndMessages(null)
         thread.quitSafely()
         getSystemService(NotificationManager::class.java).cancel(ID_FLAG)
@@ -148,6 +177,7 @@ class SpeedService : Service() {
         Thread {
             try {
                 Weather.refreshIfStale(app, Weather.FRESH_MS)
+                Rate.refreshIfStale(app, Weather.FRESH_MS)
                 Usage.update(app)
             } catch (e: Exception) {
                 // optional extras
@@ -197,13 +227,14 @@ class SpeedService : Service() {
             val weather = Weather.cached(this)
             if (weather != null) parts.add(Weather.format(weather) + " " + Prefs.cityName(this))
         }
+        if (Prefs.showRate(this)) {
+            val rate = Rate.cached(this)
+            if (rate != null) parts.add(Rate.format(rate))
+        }
         if (Prefs.showUsage(this)) {
             val used = Usage.cached(this)
             if (used != null) {
-                parts.add(
-                    getString(R.string.today_short) + " ↓ " + Formatter.formatShortFileSize(this, used.first) +
-                        "  ↑ " + Formatter.formatShortFileSize(this, used.second),
-                )
+                parts.add(getString(R.string.today_short) + ": " + Usage.oneLine(this, used))
             }
         }
         return parts.joinToString("\n")
@@ -212,13 +243,14 @@ class SpeedService : Service() {
     private fun buildSpeed(): Notification {
         val title = "↓ " + Formatter.formatShortFileSize(this, down.toLong()) + "/s    ↑ " +
             Formatter.formatShortFileSize(this, up.toLong()) + "/s"
-        val extras = extrasLine()
+        val extras = if (Prefs.compactNotice(this)) "" else extrasLine()
         val builder = Notification.Builder(this, CHANNEL)
-            .setSmallIcon(textIcon(shortSpeed(down)))
+            .setSmallIcon(speedIcon(down))
             .setContentTitle(title)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
+            .setWhen(startTime)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setContentIntent(open())
         if (extras.isNotEmpty()) {
@@ -231,13 +263,15 @@ class SpeedService : Service() {
     private fun buildFlag(): Notification {
         val display = describeCached()
         val code = codeCached()
-        val text = listOf(display.ip, display.detail).filter { it.isNotEmpty() }.joinToString("\n")
+        val text = if (Prefs.compactNotice(this)) display.ip
+        else listOf(display.ip, display.detail).filter { it.isNotEmpty() }.joinToString("\n")
         val builder = Notification.Builder(this, CHANNEL)
             .setSmallIcon(textIcon(if (code.isEmpty()) "?" else code))
             .setContentTitle(display.flag + " " + display.title)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
+            .setWhen(startTime)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setContentIntent(open())
         if (text.isNotEmpty()) {
@@ -248,12 +282,33 @@ class SpeedService : Service() {
     }
 
     // ------------------------------------------------------------------ icons
-    /** "1.2M", "340K", "0K": short enough to read in the status bar. */
-    private fun shortSpeed(bytesPerSecond: Double): String {
+    /** The download speed as a big number with a small unit under it (K or M): easy to read in the status bar. */
+    private fun speedIcon(bytesPerSecond: Double): Icon {
         val kb = bytesPerSecond / 1024.0
-        if (kb < 1000) return if (kb < 10) "%.1fK".format(java.util.Locale.US, kb) else "${kb.toInt()}K"
-        val mb = kb / 1024.0
-        return if (mb < 10) "%.1fM".format(java.util.Locale.US, mb) else "${mb.toInt()}M"
+        val number: String
+        val unit: String
+        if (kb < 1000) {
+            number = if (kb < 10) "%.1f".format(java.util.Locale.US, kb) else kb.toInt().toString()
+            unit = "K"
+        } else {
+            val mb = kb / 1024.0
+            number = if (mb < 10) "%.1f".format(java.util.Locale.US, mb) else mb.toInt().toString()
+            unit = "M"
+        }
+        val size = 96
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.CENTER
+            textSize = 78f
+        }
+        while (paint.measureText(number) > size - 2 && paint.textSize > 24f) paint.textSize -= 2f
+        canvas.drawText(number, size / 2f, 64f, paint)
+        paint.textSize = 32f
+        canvas.drawText(unit, size / 2f, 94f, paint)
+        return Icon.createWithBitmap(bitmap)
     }
 
     /** White text on a transparent square: the system tints it to match the status bar. */
@@ -274,7 +329,7 @@ class SpeedService : Service() {
     }
 
     companion object {
-        private const val CHANNEL = "speed"
+        const val CHANNEL = "speed"
         private const val ID_MAIN = 41
         private const val ID_FLAG = 42
 

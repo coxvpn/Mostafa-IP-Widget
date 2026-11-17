@@ -4,4 +4,5 @@
     <color name="widget_text">#F2F2F2</color>
     <color name="widget_dim">#A8A8A8</color>
     <color name="widget_btn">#33FFFFFF</color>
+    <color name="card_bg">#212225</color>
 </resources>
