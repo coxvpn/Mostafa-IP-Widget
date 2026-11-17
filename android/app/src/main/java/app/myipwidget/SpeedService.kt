@@ -221,42 +221,58 @@ class SpeedService : Service() {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    private fun extrasLine(): String {
-        val parts = ArrayList<String>()
-        if (Prefs.noticeTemp(this) && Prefs.hasCity(this)) {
-            val weather = Weather.cached(this)
-            if (weather != null) {
-                parts.add(Weather.format(weather) + "  " + Weather.range(weather) + "  " + Prefs.cityName(this))
-            }
+    private val FSI = "\u2068"   // isolate: keeps Persian words from reordering the numbers around them
+    private val PDI = "\u2069"
+    private val LRM = "\u200E"
+    private val DOT = "  \u00B7  "
+
+    /** Weather, high / low, city: "14°C · ▲14° ▼7° · Karaj" (empty when off or unknown). */
+    private fun tempPart(): String {
+        if (!Prefs.noticeTemp(this) || !Prefs.hasCity(this)) return ""
+        val weather = Weather.cached(this) ?: return ""
+        return LRM + Weather.format(weather) + DOT + Weather.range(weather) + DOT + FSI + Prefs.cityName(this) + PDI + LRM
+    }
+
+    private fun ratePart(): String {
+        if (!Prefs.noticeRate(this)) return ""
+        val rate = Rate.cached(this) ?: return ""
+        return LRM + Rate.format(rate)
+    }
+
+    private fun usagePart(): String {
+        if (!Prefs.noticeUsage(this)) return ""
+        val used = Usage.cached(this) ?: return ""
+        return getString(R.string.today_short) + ": " + Usage.oneLine(this, used)
+    }
+
+    /** The prayer call after the speed in the title: short, or with the clock time when [long]. */
+    private fun azanPart(long: Boolean): String {
+        if (!Prefs.noticePrayer(this)) return ""
+        val azan = Prayer.next(this) ?: return ""
+        val left = Prayer.remainingText(azan.time - System.currentTimeMillis())
+        val name = getString(azan.nameRes)
+        return if (long) {
+            "\uD83D\uDD4C " + getString(R.string.azan_word) + " " + name + " " + Prayer.clockText(azan.time) + DOT + left + " " + getString(R.string.azan_left)
+        } else {
+            "\uD83D\uDD4C " + name + " " + left + " " + getString(R.string.azan_left)
         }
-        if (Prefs.noticeRate(this)) {
-            val rate = Rate.cached(this)
-            if (rate != null) parts.add(Rate.format(rate))
-        }
-        if (Prefs.noticePrayer(this)) {
-            val azan = Prayer.next(this)
-            if (azan != null) {
-                parts.add(
-                    getString(
-                        R.string.notice_azan, getString(azan.nameRes), Prayer.clockText(azan.time),
-                        Prayer.remainingText(azan.time - System.currentTimeMillis()),
-                    ),
-                )
-            }
-        }
-        if (Prefs.noticeUsage(this)) {
-            val used = Usage.cached(this)
-            if (used != null) {
-                parts.add(getString(R.string.today_short) + ": " + Usage.oneLine(this, used))
-            }
-        }
-        return parts.joinToString("\n")
     }
 
     private fun buildSpeed(): Notification {
-        val title = "↓ " + Formatter.formatShortFileSize(this, down.toLong()) + "/s    ↑ " +
-            Formatter.formatShortFileSize(this, up.toLong()) + "/s"
-        val extras = if (Prefs.compactNotice(this)) "" else extrasLine()
+        // download and upload added together: one number
+        val speed = "\u2193\u2191 " + Formatter.formatShortFileSize(this, (down + up).toLong()) + "/s"
+        val shortAzan = azanPart(false)
+        val longAzan = azanPart(true)
+        val title = if (shortAzan.isEmpty()) speed else speed + "      " + shortAzan
+        val bigTitle = if (longAzan.isEmpty()) speed else speed + "      " + longAzan
+        val compact = Prefs.compactNotice(this)
+
+        val temp = tempPart()
+        val rate = ratePart()
+        val usage = usagePart()
+        val collapsed = listOf(temp, rate).filter { it.isNotEmpty() }.joinToString(DOT)
+        val expanded = if (compact) "" else listOf(temp, rate, usage).filter { it.isNotEmpty() }.joinToString("\n")
+
         val builder = Notification.Builder(this, CHANNEL)
             .setSmallIcon(speedIcon(down + up))
             .setContentTitle(title)
@@ -266,9 +282,9 @@ class SpeedService : Service() {
             .setWhen(startTime)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setContentIntent(open())
-        if (extras.isNotEmpty()) {
-            builder.setContentText(extras.replace("\n", "   "))
-            builder.setStyle(Notification.BigTextStyle().bigText(extras))
+        if (!compact && (collapsed.isNotEmpty() || expanded.isNotEmpty())) {
+            builder.setContentText(collapsed)
+            builder.setStyle(Notification.BigTextStyle().setBigContentTitle(bigTitle).bigText(expanded))
         }
         return builder.build()
     }

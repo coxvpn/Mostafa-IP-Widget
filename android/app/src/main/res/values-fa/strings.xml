@@ -78,4 +78,6 @@
         <item>آبی شب</item>
         <item>سبز جنگلی</item>
     </string-array>
+    <string name="azan_word">اذان</string>
+    <string name="azan_left">مانده</string>
 </resources>

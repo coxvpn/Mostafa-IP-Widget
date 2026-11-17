@@ -8,4 +8,5 @@
     <color name="widget_up">#FF8A65</color>
     <color name="widget_down">#64B5F6</color>
     <color name="widget_prayer">#FFD27A</color>
+    <color name="widget_panel">#2C3E5C</color>
 </resources>

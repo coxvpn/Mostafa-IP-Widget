@@ -146,14 +146,14 @@ class IpWidget : AppWidgetProvider() {
             }.start()
         }
 
-        private class Look(val bg: Int, val text: Int, val dim: Int, val up: Int, val down: Int, val prayer: Int, val button: Int)
+        private class Look(val bg: Int, val text: Int, val dim: Int, val up: Int, val down: Int, val prayer: Int, val button: Int, val panel: Int)
 
         private fun look(theme: Int): Look? = when (theme) {
-            1 -> Look(R.drawable.bg_theme_dark, 0xFFF2F2F2.toInt(), 0xFFA8A8A8.toInt(), 0xFFFF8A65.toInt(), 0xFF64B5F6.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark)
-            2 -> Look(R.drawable.bg_theme_light, 0xFF111111.toInt(), 0xFF5C5C5C.toInt(), 0xFFD84315.toInt(), 0xFF1565C0.toInt(), 0xFF8A5A00.toInt(), R.drawable.btn_on_light)
-            3 -> Look(R.drawable.bg_theme_glass, 0xFFFFFFFF.toInt(), 0xFFE8E8E8.toInt(), 0xFFFF8A65.toInt(), 0xFF90CAF9.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark)
-            4 -> Look(R.drawable.bg_theme_blue, 0xFFEAF1FF.toInt(), 0xFF9DB3D9.toInt(), 0xFFFF8A65.toInt(), 0xFF64B5F6.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark)
-            5 -> Look(R.drawable.bg_theme_green, 0xFFEAFFF0.toInt(), 0xFF9FCBB0.toInt(), 0xFFFF8A65.toInt(), 0xFF64B5F6.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark)
+            1 -> Look(R.drawable.bg_theme_dark, 0xFFF2F2F2.toInt(), 0xFFA8A8A8.toInt(), 0xFFFF8A65.toInt(), 0xFF64B5F6.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark, R.drawable.panel_on_dark)
+            2 -> Look(R.drawable.bg_theme_light, 0xFF111111.toInt(), 0xFF5C5C5C.toInt(), 0xFFD84315.toInt(), 0xFF1565C0.toInt(), 0xFF8A5A00.toInt(), R.drawable.btn_on_light, R.drawable.panel_on_light)
+            3 -> Look(R.drawable.bg_theme_glass, 0xFFFFFFFF.toInt(), 0xFFE8E8E8.toInt(), 0xFFFF8A65.toInt(), 0xFF90CAF9.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark, R.drawable.panel_on_dark)
+            4 -> Look(R.drawable.bg_theme_blue, 0xFFEAF1FF.toInt(), 0xFF9DB3D9.toInt(), 0xFFFF8A65.toInt(), 0xFF64B5F6.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark, R.drawable.panel_on_dark)
+            5 -> Look(R.drawable.bg_theme_green, 0xFFEAFFF0.toInt(), 0xFF9FCBB0.toInt(), 0xFFFF8A65.toInt(), 0xFF64B5F6.toInt(), 0xFFFFD27A.toInt(), R.drawable.btn_on_dark, R.drawable.panel_on_dark)
             else -> null   // 0: the layout's own colours, which follow the phone's light / dark mode
         }
 
@@ -169,6 +169,7 @@ class IpWidget : AppWidgetProvider() {
             views.setTextColor(R.id.prayer_label, look.prayer)
             views.setInt(R.id.prayer_time, "setTextColor", look.prayer)
             views.setInt(R.id.refresh, "setBackgroundResource", look.button)
+            views.setInt(R.id.info, "setBackgroundResource", look.panel)
         }
 
         /** Wakes the widget up when the prayer call comes, so it can switch to the next one. */

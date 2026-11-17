@@ -17,4 +17,5 @@
     <color name="aqi_sensitive">#FB8C00</color>
     <color name="aqi_bad">#E53935</color>
     <color name="aqi_awful">#8E24AA</color>
+    <color name="widget_panel">#D6E0F2</color>
 </resources>

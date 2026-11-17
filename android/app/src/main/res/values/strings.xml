@@ -50,14 +50,14 @@
     <string name="battery_allow">Continue</string>
     <string name="battery_later">Not now</string>
     <string name="battery_button">Allow running without battery limits</string>
-    <string name="widget_rate_label">USD rate</string>
+    <string name="widget_rate_label">نرخ دلار</string>
     <string name="widget_wifi_label" translatable="false">Wi-Fi</string>
     <string name="widget_sim_label" translatable="false">SIM</string>
-    <string name="widget_azan_prefix">To %1$s</string>
-    <string name="azan_fajr">Fajr</string>
-    <string name="azan_dhuhr">Dhuhr</string>
-    <string name="azan_maghrib">Maghrib</string>
-    <string name="notice_azan">%1$s %2$s (%3$s left)</string>
+    <string name="widget_azan_prefix">تا اذان %1$s</string>
+    <string name="azan_fajr">صبح</string>
+    <string name="azan_dhuhr">ظهر</string>
+    <string name="azan_maghrib">مغرب</string>
+    <string name="notice_azan">اذان %1$s %2$s (%3$s مانده)</string>
     <string name="show_aqi">Show the air quality (AQI)</string>
     <string name="show_prayer">Show the time left to the next prayer call (Shia times, uses the chosen city)</string>
     <string name="show_notice_temp">Temperature</string>
@@ -80,4 +80,6 @@
         <item>Night blue</item>
         <item>Forest green</item>
     </string-array>
+    <string name="azan_word">اذان</string>
+    <string name="azan_left">مانده</string>
 </resources>
