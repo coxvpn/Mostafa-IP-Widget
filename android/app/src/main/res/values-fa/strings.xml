@@ -25,8 +25,8 @@
     <string name="usage_no_access">برای نمایش حجم مصرف، دکمه‌ی پایین را بزنید و به برنامه اجازه بدهید.</string>
     <string name="notice_channel">سرعت لحظه‌ای و پرچم</string>
     <string name="today_short">امروز</string>
-    <string name="show_speed_notice">نمایش سرعت لحظه‌ای در نوار اعلان بالای گوشی</string>
-    <string name="show_flag_notice">نمایش کشور در نوار اعلان (به‌صورت حروف)</string>
+    <string name="show_speed_notice">سرعت لحظه‌ای (عدد کنار ساعت)</string>
+    <string name="show_flag_notice">کشور (حروف کنار ساعت و ردیف جدا در پنل)</string>
     <string name="notice_denied">اجازه‌ی اعلان داده نشده، پس چیزی نشان داده نمی‌شود. در تنظیمات گوشی اجازه بدهید.</string>
     <string name="show_date">نمایش تاریخ امروز</string>
     <string name="about">درباره‌ی من و کد برنامه</string>
@@ -80,4 +80,5 @@
     </string-array>
     <string name="azan_word">اذان</string>
     <string name="azan_left">مانده</string>
+    <string name="notice_enabled">نمایش در نوار اعلان گوشی</string>
 </resources>

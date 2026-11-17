@@ -98,7 +98,18 @@ object Prefs {
         prefs(context).edit().putBoolean("notice_prayer", value).apply()
     }
 
-    fun anyNotice(context: Context) = showSpeedNotice(context) || showFlagNotice(context)
+    /** The master switch for the notification bar. Before it existed: on when speed or flag was on. */
+    fun noticeEnabled(context: Context): Boolean {
+        val p = prefs(context)
+        return if (p.contains("notice_enabled")) p.getBoolean("notice_enabled", false)
+        else showSpeedNotice(context) || showFlagNotice(context)
+    }
+
+    fun setNoticeEnabled(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("notice_enabled", value).apply()
+    }
+
+    fun anyNotice(context: Context) = noticeEnabled(context)
 
     fun cityName(context: Context): String = prefs(context).getString("city_name", "") ?: ""
 

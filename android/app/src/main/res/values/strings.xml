@@ -25,7 +25,7 @@
     <string name="usage_no_access">Data usage needs \"usage access\" - tap the button below and allow Mostafa-IP-Widget.</string>
     <string name="notice_channel">Live speed and flag</string>
     <string name="today_short">Today</string>
-    <string name="show_speed_notice">Show live speed in the notification bar</string>
+    <string name="show_speed_notice">Live speed (the number beside the clock)</string>
     <string name="show_flag_notice">Show the country in the notification bar (as letters)</string>
     <string name="notice_denied">Notifications are not allowed, so nothing can be shown. Allow them in the phone settings.</string>
     <string name="show_date">Show today\'s date</string>
@@ -82,4 +82,5 @@
     </string-array>
     <string name="azan_word">اذان</string>
     <string name="azan_left">مانده</string>
+    <string name="notice_enabled">Show in the notification bar</string>
 </resources>

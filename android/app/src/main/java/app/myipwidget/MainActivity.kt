@@ -107,19 +107,31 @@ class MainActivity : Activity() {
         // what the notification text holds
         findViewById<CheckBox>(R.id.check_notice_temp).apply {
             isChecked = Prefs.noticeTemp(this@MainActivity)
-            setOnCheckedChangeListener { _, checked -> Prefs.setNoticeTemp(this@MainActivity, checked) }
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.setNoticeTemp(this@MainActivity, checked)
+                SpeedService.sync(this@MainActivity)
+            }
         }
         findViewById<CheckBox>(R.id.check_notice_rate).apply {
             isChecked = Prefs.noticeRate(this@MainActivity)
-            setOnCheckedChangeListener { _, checked -> Prefs.setNoticeRate(this@MainActivity, checked) }
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.setNoticeRate(this@MainActivity, checked)
+                SpeedService.sync(this@MainActivity)
+            }
         }
         findViewById<CheckBox>(R.id.check_notice_usage).apply {
             isChecked = Prefs.noticeUsage(this@MainActivity)
-            setOnCheckedChangeListener { _, checked -> Prefs.setNoticeUsage(this@MainActivity, checked) }
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.setNoticeUsage(this@MainActivity, checked)
+                SpeedService.sync(this@MainActivity)
+            }
         }
         findViewById<CheckBox>(R.id.check_notice_prayer).apply {
             isChecked = Prefs.noticePrayer(this@MainActivity)
-            setOnCheckedChangeListener { _, checked -> Prefs.setNoticePrayer(this@MainActivity, checked) }
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.setNoticePrayer(this@MainActivity, checked)
+                SpeedService.sync(this@MainActivity)
+            }
         }
         findViewById<Button>(R.id.choose_theme).apply {
             text = getString(R.string.theme_button, themeName(Prefs.theme(this@MainActivity)))
@@ -129,9 +141,22 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.add_widget).setOnClickListener { addWidget() }
         findViewById<CheckBox>(R.id.check_compact).apply {
             isChecked = Prefs.compactNotice(this@MainActivity)
-            setOnCheckedChangeListener { _, checked -> Prefs.setCompactNotice(this@MainActivity, checked) }
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.setCompactNotice(this@MainActivity, checked)
+                SpeedService.sync(this@MainActivity)
+            }
         }
         findViewById<Button>(R.id.notice_settings).setOnClickListener { openNoticeSettings() }
+        // master switch: when off, the notification bar shows nothing and the other choices are greyed out
+        findViewById<CheckBox>(R.id.check_notice_enabled).apply {
+            isChecked = Prefs.noticeEnabled(this@MainActivity)
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.setNoticeEnabled(this@MainActivity, checked)
+                noticeDependants(checked)
+                noticeChanged(checked)
+            }
+        }
+        noticeDependants(Prefs.noticeEnabled(this))
         checkSpeedNotice = findViewById(R.id.check_speed_notice)
         checkFlagNotice = findViewById(R.id.check_flag_notice)
         checkSpeedNotice.isChecked = Prefs.showSpeedNotice(this)
@@ -214,6 +239,16 @@ class MainActivity : Activity() {
         // coming back from the usage-access settings page: use the new permission
         showExtras()
         updateExtras()
+    }
+
+    /** The choices under the master switch can only be changed while it is on. */
+    private fun noticeDependants(enabled: Boolean) {
+        for (id in intArrayOf(
+            R.id.check_speed_notice, R.id.check_flag_notice, R.id.check_compact, R.id.check_notice_temp,
+            R.id.check_notice_rate, R.id.check_notice_usage, R.id.check_notice_prayer,
+        )) {
+            findViewById<View>(id).isEnabled = enabled
+        }
     }
 
     /** Starts / stops the notifications; from Android 13 the notification permission is needed first. */

@@ -129,7 +129,7 @@ class SpeedService : Service() {
 
     // ------------------------------------------------------------------ foreground
     private fun enterForeground() {
-        val notification = if (Prefs.showSpeedNotice(this)) buildSpeed() else buildFlag()
+        val notification = if (hasMain()) buildMain() else buildFlag()
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(ID_MAIN, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -188,22 +188,32 @@ class SpeedService : Service() {
     }
 
     // ------------------------------------------------------------------ showing
+    /** True when the main notification has something to show: the speed, or any of the extra lines. */
+    private fun hasMain(): Boolean = Prefs.showSpeedNotice(this) || Prefs.noticeTemp(this) || Prefs.noticeRate(this) ||
+        Prefs.noticeUsage(this) || Prefs.noticePrayer(this)
+
     private fun render() {
-        if (!Prefs.anyNotice(this)) {
+        if (!Prefs.anyNotice(this) || (!hasMain() && !Prefs.showFlagNotice(this))) {
             stopSelf()
             return
         }
         val manager = getSystemService(NotificationManager::class.java)
-        val speedOn = Prefs.showSpeedNotice(this)
         val flagOn = Prefs.showFlagNotice(this)
-        manager.notify(ID_MAIN, if (speedOn) buildSpeed() else buildFlag())
-        if (speedOn && flagOn) {
-            val key = describeCached().let { it.flag + it.title + it.ip + it.detail } + codeCached()
-            if (key != flagShown) {
-                flagShown = key
-                manager.notify(ID_FLAG, buildFlag())
+        if (hasMain()) {
+            manager.notify(ID_MAIN, buildMain())
+            if (flagOn) {
+                val key = describeCached().let { it.flag + it.title + it.ip + it.detail } + codeCached()
+                if (key != flagShown) {
+                    flagShown = key
+                    manager.notify(ID_FLAG, buildFlag())
+                }
+            } else {
+                flagShown = null
+                manager.cancel(ID_FLAG)
             }
         } else {
+            // only the flag is wanted: it takes the place of the main notification
+            manager.notify(ID_MAIN, buildFlag())
             flagShown = null
             manager.cancel(ID_FLAG)
         }
@@ -258,23 +268,45 @@ class SpeedService : Service() {
         }
     }
 
-    private fun buildSpeed(): Notification {
-        // download and upload added together: one number
-        val speed = "\u2193\u2191 " + Formatter.formatShortFileSize(this, (down + up).toLong()) + "/s"
+    /**
+     * The main notification. The speed (when on) is alone in the title, so it stays at the left edge;
+     * the prayer call, weather and rate are in the text under it. Nothing sits beside a changing number.
+     */
+    private fun buildMain(): Notification {
+        val speedOn = Prefs.showSpeedNotice(this)
+        val compact = Prefs.compactNotice(this)
         val shortAzan = azanPart(false)
         val longAzan = azanPart(true)
-        val title = if (shortAzan.isEmpty()) speed else speed + "      " + shortAzan
-        val bigTitle = if (longAzan.isEmpty()) speed else speed + "      " + longAzan
-        val compact = Prefs.compactNotice(this)
-
         val temp = tempPart()
         val rate = ratePart()
         val usage = usagePart()
-        val collapsed = listOf(temp, rate).filter { it.isNotEmpty() }.joinToString(DOT)
-        val expanded = if (compact) "" else listOf(temp, rate, usage).filter { it.isNotEmpty() }.joinToString("\n")
+
+        val title: String
+        val bigTitle: String
+        val collapsedParts: List<String>
+        val expandedLines: List<String>
+        if (speedOn) {
+            // download and upload added together: one number
+            title = "\u2193\u2191 " + Formatter.formatShortFileSize(this, (down + up).toLong()) + "/s"
+            bigTitle = title
+            collapsedParts = listOf(shortAzan, temp, rate)
+            expandedLines = listOf(longAzan, temp, rate, usage)
+        } else if (shortAzan.isNotEmpty()) {
+            title = shortAzan
+            bigTitle = longAzan
+            collapsedParts = listOf(temp, rate)
+            expandedLines = listOf(temp, rate, usage)
+        } else {
+            title = getString(R.string.app_name)
+            bigTitle = title
+            collapsedParts = listOf(temp, rate)
+            expandedLines = listOf(temp, rate, usage)
+        }
+        val collapsed = collapsedParts.filter { it.isNotEmpty() }.joinToString(DOT)
+        val expanded = expandedLines.filter { it.isNotEmpty() }.joinToString("\n")
 
         val builder = Notification.Builder(this, CHANNEL)
-            .setSmallIcon(speedIcon(down + up))
+            .setSmallIcon(if (speedOn) speedIcon(down + up) else Icon.createWithResource(this, R.drawable.ic_stat))
             .setContentTitle(title)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -282,7 +314,7 @@ class SpeedService : Service() {
             .setWhen(startTime)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setContentIntent(open())
-        if (!compact && (collapsed.isNotEmpty() || expanded.isNotEmpty())) {
+        if (!compact && expanded.isNotEmpty()) {
             builder.setContentText(collapsed)
             builder.setStyle(Notification.BigTextStyle().setBigContentTitle(bigTitle).bigText(expanded))
         }

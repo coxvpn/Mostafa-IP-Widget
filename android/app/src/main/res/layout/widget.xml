@@ -168,42 +168,27 @@
             android:textSize="18sp" />
     </LinearLayout>
 
-    <TextView
-            android:id="@+id/country"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="0.8"
-            android:ellipsize="end"
-            android:gravity="center"
-            android:maxLines="1"
-            android:textColor="@color/widget_text"
-            android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="6sp"
-            android:autoSizeMaxTextSize="20sp"
-            android:autoSizeStepGranularity="1sp"
-            android:textStyle="bold" />
-
-    <!-- the flag sits beside the IP address -->
+    <!-- the flag and the country name share one line; the IP address is on the next -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1.2"
+        android:layout_weight="1.1"
         android:orientation="horizontal">
         <TextView
             android:id="@+id/flag"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="2"
+            android:layout_weight="3"
             android:ellipsize="end"
             android:gravity="center_vertical|end"
             android:maxLines="1"
             android:textColor="@color/widget_text"
             android:autoSizeTextType="uniform"
             android:autoSizeMinTextSize="6sp"
-            android:autoSizeMaxTextSize="26sp"
+            android:autoSizeMaxTextSize="24sp"
             android:autoSizeStepGranularity="1sp" />
         <TextView
-            android:id="@+id/ip"
+            android:id="@+id/country"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="7"
@@ -213,10 +198,24 @@
             android:textColor="@color/widget_text"
             android:autoSizeTextType="uniform"
             android:autoSizeMinTextSize="6sp"
-            android:autoSizeMaxTextSize="26sp"
+            android:autoSizeMaxTextSize="22sp"
             android:autoSizeStepGranularity="1sp"
-            android:layout_marginStart="6dp" />
+            android:layout_marginStart="6dp" android:textStyle="bold" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/ip"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.1"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:textColor="@color/widget_text"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMinTextSize="6sp"
+        android:autoSizeMaxTextSize="26sp"
+        android:autoSizeStepGranularity="1sp" />
 
     <TextView
             android:id="@+id/detail"

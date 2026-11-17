@@ -172,6 +172,14 @@ class IpWidget : AppWidgetProvider() {
             views.setInt(R.id.info, "setBackgroundResource", look.panel)
         }
 
+        /** An IPv6 address is long: "IPv6 2a01:4f8…1" is enough for the widget. */
+        private fun shortIp(ip: String): String {
+            if (!ip.contains(':')) return ip
+            val groups = ip.split(':').filter { it.isNotEmpty() }
+            if (groups.size < 3) return "IPv6 $ip"
+            return "IPv6 " + groups[0] + ":" + groups[1] + "\u2026" + groups.last()
+        }
+
         /** Wakes the widget up when the prayer call comes, so it can switch to the next one. */
         private fun schedulePrayerRedraw(context: Context, at: Long) {
             try {
@@ -194,7 +202,7 @@ class IpWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget)
             views.setTextViewText(R.id.flag, display.flag)
             views.setTextViewText(R.id.country, display.title)
-            views.setTextViewText(R.id.ip, display.ip)
+            views.setTextViewText(R.id.ip, shortIp(display.ip))
             views.setTextViewText(R.id.detail, display.detail)
             views.setTextViewText(R.id.refresh, if (busy) "…" else "↻")
 
