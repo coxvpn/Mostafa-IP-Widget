@@ -122,10 +122,23 @@ object Prefs {
     }
 
     /** Which of the beep melodies is chosen (0..4). */
-    fun beepSound(context: Context) = prefs(context).getInt("beep_sound", 0).coerceIn(0, 4)
+    fun beepSound(context: Context) = prefs(context).getInt("beep_sound", 0).coerceIn(0, 9)
 
     fun setBeepSound(context: Context, value: Int) {
         prefs(context).edit().putInt("beep_sound", value).apply()
+    }
+
+    fun beepEnabled(context: Context) = prefs(context).getBoolean("beep_enabled", false)
+
+    fun setBeepEnabled(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("beep_enabled", value).apply()
+    }
+
+    /** The prayer-call sound for one call ("azan_fajr", "azan_dhuhr", "azan_maghrib"); off by default. */
+    fun azanSound(context: Context, key: String) = prefs(context).getBoolean("azan_sound_$key", false)
+
+    fun setAzanSound(context: Context, key: String, value: Boolean) {
+        prefs(context).edit().putBoolean("azan_sound_$key", value).apply()
     }
 
     fun setTheme(context: Context, value: Int) {

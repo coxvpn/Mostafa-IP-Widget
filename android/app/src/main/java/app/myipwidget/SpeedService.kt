@@ -32,10 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  *    one-colour, so a coloured flag is not possible there); the text has the flag, country and IP.
  */
 class SpeedService : Service() {
-
-    override fun attachBaseContext(base: android.content.Context) {
-        super.attachBaseContext(Prefs.localized(base))
-    }
     private lateinit var thread: HandlerThread
     private lateinit var handler: Handler
     private val busy = AtomicBoolean(false)
@@ -244,7 +240,8 @@ class SpeedService : Service() {
     private fun tempPart(): String {
         if (!Prefs.noticeTemp(this) || !Prefs.hasCity(this)) return ""
         val weather = Weather.cached(this) ?: return ""
-        return LRM + Weather.format(weather) + DOT + FSI + Prefs.cityName(this) + PDI + LRM
+        return LRM + Weather.format(weather) + DOT + FSI + Prefs.cityName(this) + PDI + LRM +
+            (Occasions.today()?.let { DOT + FSI + Occasions.label(it) + PDI } ?: "")
     }
 
     private fun ratePart(): String {
@@ -302,7 +299,8 @@ class SpeedService : Service() {
         val expandedLines: List<String>
         if (speedOn) {
             // download and upload added together: one number
-            title = "\u2193\u2191 " + Formatter.formatShortFileSize(this, (down + up).toLong()) + "/s"
+            // the unit never moves: the number is padded on the left with figure spaces (as wide as a digit)
+            title = "\u2193\u2191 " + (if (down + up < MIN_SPEED) 0L else ((down + up) / 1024.0).toLong()).toString().padStart(5, '\u2007') + " KB/s"
             bigTitle = title
             collapsedParts = shorts
             expandedLines = longs.map { it.second }
@@ -319,7 +317,7 @@ class SpeedService : Service() {
             collapsedParts = emptyList()
             expandedLines = emptyList()
         }
-        val collapsed = collapsedParts.filter { it.isNotEmpty() }.joinToString(DOT)
+        val collapsed = collapsedParts.filter { it.isNotEmpty() }.joinToString("\u2003\u2003\u2003")
         val expanded = expandedLines.filter { it.isNotEmpty() }.joinToString("\n")
 
         val builder = Notification.Builder(this, CHANNEL)

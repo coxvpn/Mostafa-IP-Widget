@@ -117,6 +117,11 @@
         <item>Drop</item>
         <item>Marimba</item>
         <item>Lullaby</item>
+        <item>Door chime</item>
+        <item>Bird</item>
+        <item>Harp</item>
+        <item>Star</item>
+        <item>Santur</item>
     </string-array>
     <string name="use_gps">Current location (GPS)</string>
     <string name="gps_waiting">Finding your position…</string>
@@ -124,4 +129,9 @@
     <string name="gps_failed">The position could not be found. Try outdoors or search by name.</string>
     <string name="gps_denied">Without the location permission the city cannot be found from GPS.</string>
     <string name="my_location">My location</string>
+    <string name="beep_enabled">Beep on</string>
+    <string name="section_azan_sound">Prayer call sound</string>
+    <string name="azan_sound_help">At the prayer time the phone plays the melody chosen above (Beep sound). Tick the calls you want.</string>
+    <string name="section_chart">Data used in the last 7 days</string>
+    <string name="chart_legend">Wi-Fi blue, SIM pink - total %1$s</string>
 </resources>

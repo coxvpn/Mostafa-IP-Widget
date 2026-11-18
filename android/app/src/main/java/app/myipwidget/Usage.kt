@@ -55,6 +55,23 @@ object Usage {
         return if (wifi < 0 && mobile < 0) null else Today(wifi, mobile)
     }
 
+    /** The last [days] days (the oldest first, today last): Wi-Fi and SIM bytes of each. Call from a background thread. */
+    fun history(context: Context, days: Int = 7): List<Today> {
+        if (!hasAccess(context)) return emptyList()
+        val manager = context.getSystemService(NetworkStatsManager::class.java) ?: return emptyList()
+        val out = ArrayList<Today>()
+        for (back in days - 1 downTo 0) {
+            val start = Calendar.getInstance().apply {
+                add(Calendar.DAY_OF_YEAR, -back)
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val from = start.timeInMillis
+            val to = if (back == 0) System.currentTimeMillis() else (start.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }.timeInMillis
+            out.add(Today(total(manager, ConnectivityManager.TYPE_WIFI, from, to), total(manager, ConnectivityManager.TYPE_MOBILE, from, to)))
+        }
+        return out
+    }
+
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences("usage", Context.MODE_PRIVATE)
 
@@ -77,7 +94,7 @@ object Usage {
     }
 
     private fun size(context: Context, bytes: Long): String =
-        if (bytes < 0) "\u2014" else Formatter.formatShortFileSize(context, bytes)
+        if (bytes < 0) "\u2014" else Formatter.formatShortFileSize(context.applicationContext, bytes)
 
     fun wifiLine(context: Context, value: Today?): String =
         context.getString(R.string.label_wifi) + " " + size(context, value?.wifi ?: -1L)

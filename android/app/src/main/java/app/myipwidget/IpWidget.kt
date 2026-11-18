@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
+import java.util.Calendar
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
@@ -58,6 +59,7 @@ class IpWidget : AppWidgetProvider() {
             Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 SpeedService.sync(context)
                 Beeper.schedule(context)
+                Beeper.scheduleAzan(context)
                 if (hasWidgets(context)) {
                     NetWatch.start(context)
                     val pending = goAsync()
@@ -72,7 +74,7 @@ class IpWidget : AppWidgetProvider() {
         const val ACTION_REFRESH = "app.myipwidget.REFRESH"
         const val ACTION_PRAYER = "app.myipwidget.PRAYER"
         private val AQI_BACKGROUNDS = intArrayOf(
-            R.drawable.aqi_bg_0, R.drawable.aqi_bg_1, R.drawable.aqi_bg_2, R.drawable.aqi_bg_3, R.drawable.aqi_bg_4,
+            R.drawable.aqi_bg_0, R.drawable.aqi_bg_1, R.drawable.aqi_bg_2, R.drawable.aqi_bg_3, R.drawable.aqi_bg_4, R.drawable.aqi_bg_5,
         )
         private val LAYOUTS = intArrayOf(
             R.layout.widget, R.layout.widget_l1, R.layout.widget_l2, R.layout.widget_l3, R.layout.widget_l4,
@@ -81,6 +83,14 @@ class IpWidget : AppWidgetProvider() {
 
         private val latest = AtomicInteger(0)
         private val fetchingSince = AtomicLong(0L)
+
+        private fun skyTile(code: Int, night: Boolean): Int = when (code) {
+            45, 48 -> R.drawable.tile_sky_fog
+            51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99 -> R.drawable.tile_sky_rain
+            71, 73, 75, 77, 85, 86 -> R.drawable.tile_sky_snow
+            3 -> R.drawable.tile_sky_cloud
+            else -> if (night) R.drawable.tile_sky_night else R.drawable.tile_sky
+        }
 
         private fun hasWidgets(context: Context): Boolean {
             val manager = AppWidgetManager.getInstance(context)
@@ -223,7 +233,14 @@ class IpWidget : AppWidgetProvider() {
             // temperature, high / low, air quality
             views.setViewVisibility(R.id.weather_box, if (showWeather) View.VISIBLE else if (styled) View.GONE else View.INVISIBLE)
             if (styled) {
-                views.setTextViewText(R.id.sun, if (weather != null) Weather.symbol(weather.code) else "")
+                val night = Calendar.getInstance().get(Calendar.HOUR_OF_DAY).let { it < 6 || it >= 18 }
+                val code = weather?.code ?: 0
+                views.setTextViewText(
+                    R.id.sun,
+                    if (weather == null) "" else if (night && code == 0) "\uD83C\uDF19" else Weather.symbol(code),
+                )
+                // the tile's colour follows the weather
+                views.setInt(R.id.weather_box, "setBackgroundResource", skyTile(code, night))
                 views.setTextViewText(R.id.weather, if (weather != null) Math.round(weather.temp).toString() + "\u00B0" else "\u2026")
                 val city = Prefs.cityName(context)
                 views.setTextViewText(R.id.city_label, if (city.isEmpty()) "" else "\u2068" + city + "\u2069")
@@ -269,7 +286,16 @@ class IpWidget : AppWidgetProvider() {
                 views.setViewVisibility(R.id.prayer_row, View.GONE)
             }
             // keep the space, so the button stays at the right edge
-            views.setViewVisibility(R.id.info, if (showDate || azan != null) View.VISIBLE else if (styled) View.GONE else View.INVISIBLE)
+            views.setViewVisibility(R.id.info, if (showDate || azan != null || styled) View.VISIBLE else View.INVISIBLE)
+            // the day's occasion, under the dates (the coloured layouts)
+            val occasion = if (showDate) Occasions.today() else null
+            if (occasion != null) {
+                views.setViewVisibility(R.id.occasion, View.VISIBLE)
+                views.setTextViewText(R.id.occasion, Occasions.label(occasion))
+                views.setInt(R.id.occasion, "setBackgroundResource", if (occasion.holiday) R.drawable.chip_red else R.drawable.chip_purple)
+            } else {
+                views.setViewVisibility(R.id.occasion, View.GONE)
+            }
 
             // bottom row: three cells, each with a small label and a big value
             views.setTextViewText(R.id.lbl_rate, (if (styled) "\uD83D\uDCB5 " else "") + context.getString(R.string.widget_rate_label))

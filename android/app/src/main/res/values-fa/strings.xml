@@ -115,6 +115,11 @@
         <item>قطره</item>
         <item>ماریمبا</item>
         <item>لالایی</item>
+        <item>زنگ در</item>
+        <item>پرنده</item>
+        <item>چنگ</item>
+        <item>ستاره</item>
+        <item>سنتور</item>
     </string-array>
     <string name="use_gps">موقعیت فعلی (GPS)</string>
     <string name="gps_waiting">در حال پیدا کردن موقعیت شما…</string>
@@ -122,4 +127,9 @@
     <string name="gps_failed">موقعیت پیدا نشد. بیرون از ساختمان امتحان کنید یا با نام شهر جستجو کنید.</string>
     <string name="gps_denied">بدون اجازه‌ی موقعیت، شهر از روی GPS پیدا نمی‌شود.</string>
     <string name="my_location">موقعیت من</string>
+    <string name="beep_enabled">بیپ روشن باشد</string>
+    <string name="section_azan_sound">صدای اذان</string>
+    <string name="azan_sound_help">سر وقت اذان، گوشی آهنگی را که بالا در «صدای بیپ» انتخاب کرده‌ای پخش می‌کند. وعده‌هایی را که می‌خواهی تیک بزن.</string>
+    <string name="section_chart">مصرف ۷ روز اخیر</string>
+    <string name="chart_legend">Wi-Fi آبی، SIM صورتی - جمع هفته %1$s</string>
 </resources>

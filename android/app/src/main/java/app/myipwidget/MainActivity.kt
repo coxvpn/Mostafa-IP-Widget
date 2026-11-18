@@ -174,6 +174,27 @@ class MainActivity : Activity() {
             noticeToggle.text = getString(if (open) R.string.notice_toggle_open else R.string.notice_toggle_closed)
         }
         buildBeepSlots()
+        val beepBody = findViewById<View>(R.id.beep_body)
+        findViewById<CheckBox>(R.id.check_beep_enabled).apply {
+            isChecked = Prefs.beepEnabled(this@MainActivity)
+            beepBody.visibility = if (isChecked) View.VISIBLE else View.GONE
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.setBeepEnabled(this@MainActivity, checked)
+                beepBody.visibility = if (checked) View.VISIBLE else View.GONE
+                Beeper.schedule(this@MainActivity)
+            }
+        }
+        for ((id, key) in listOf(R.id.check_azan_fajr to "azan_fajr", R.id.check_azan_dhuhr to "azan_dhuhr", R.id.check_azan_maghrib to "azan_maghrib")) {
+            findViewById<CheckBox>(id).apply {
+                isChecked = Prefs.azanSound(this@MainActivity, key)
+                setOnCheckedChangeListener { _, checked ->
+                    Prefs.setAzanSound(this@MainActivity, key, checked)
+                    Beeper.scheduleAzan(this@MainActivity)
+                }
+            }
+        }
+        Beeper.schedule(this)
+        Beeper.scheduleAzan(this)
         findViewById<Button>(R.id.choose_beep_sound).apply {
             text = getString(R.string.beep_sound_button, soundName(Prefs.beepSound(this@MainActivity)))
             setOnClickListener { askSound(this) }
@@ -402,6 +423,35 @@ class MainActivity : Activity() {
         // coming back from the usage-access settings page: use the new permission
         showExtras()
         updateExtras()
+        loadChart()
+    }
+
+    /** The seven-day chart: the system's numbers are read off the main thread. */
+    private fun loadChart() {
+        val chart = findViewById<UsageChart>(R.id.usage_chart)
+        val legend = findViewById<TextView>(R.id.chart_legend)
+        chart.textColor = legend.currentTextColor
+        val days = resources.getStringArray(R.array.day_short)
+        Thread {
+            val data = Usage.history(applicationContext, 7)
+            runOnUiThread {
+                if (isFinishing) return@runOnUiThread
+                if (data.isEmpty()) {
+                    chart.data = emptyList()
+                    legend.text = getString(R.string.usage_no_access)
+                } else {
+                    // Calendar: Saturday = 7 -> index 0 of the day names (Saturday first)
+                    val labels = (data.size - 1 downTo 0).map { back ->
+                        val c = java.util.Calendar.getInstance().apply { add(java.util.Calendar.DAY_OF_YEAR, -back) }
+                        days[c.get(java.util.Calendar.DAY_OF_WEEK) % 7]
+                    }
+                    chart.labels = labels
+                    chart.data = data
+                    val sum = data.sumOf { maxOf(0L, it.wifi) + maxOf(0L, it.mobile) }
+                    legend.text = getString(R.string.chart_legend, android.text.format.Formatter.formatShortFileSize(applicationContext, sum))
+                }
+            }
+        }.start()
     }
 
     /** The choices under the master switch can only be changed while it is on. */
@@ -641,6 +691,24 @@ class MainActivity : Activity() {
                 }
             } catch (e: Exception) {
                 // no map service: use the fixed name
+            }
+            if (name.isEmpty()) {
+                try {
+                    val url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=fa&lat=" +
+                        location.latitude + "&lon=" + location.longitude
+                    val body = IpLookup.httpGet(url, 20000)
+                    if (body != null) {
+                        val a = org.json.JSONObject(body).optJSONObject("address")
+                        if (a != null) {
+                            for (key in arrayOf("city", "town", "village", "county", "state")) {
+                                val v = a.optString(key, "")
+                                if (v.isNotEmpty()) { name = v; break }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // offline: the fixed name below
+                }
             }
             if (name.isEmpty()) name = getString(R.string.my_location)
             runOnUiThread {

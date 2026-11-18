@@ -150,6 +150,7 @@ object Weather {
         aqi <= 100 -> 1
         aqi <= 150 -> 2
         aqi <= 200 -> 3
-        else -> 4
+        aqi <= 300 -> 4
+        else -> 5
     }
 }

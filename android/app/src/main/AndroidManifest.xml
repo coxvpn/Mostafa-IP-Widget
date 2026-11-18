@@ -47,6 +47,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".AzanReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".IpWidget"
             android:exported="true">
             <intent-filter>
