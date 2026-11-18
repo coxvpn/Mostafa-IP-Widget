@@ -8,6 +8,8 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import java.util.Calendar
 
@@ -66,26 +68,26 @@ object Beeper {
 
     // each melody: pairs of (frequency in Hz, length in ms); 0 Hz is a short rest
     private val MELODIES = arrayOf(
-        // 0 bell: three soft rising notes
-        intArrayOf(784, 260, 988, 260, 1319, 520),
-        // 1 gentle: slow falling pair
-        intArrayOf(880, 320, 659, 640),
-        // 2 drop: one clean high note
-        intArrayOf(1568, 600),
-        // 3 marimba: quick playful run
-        intArrayOf(523, 140, 659, 140, 784, 140, 1047, 420),
-        // 4 lullaby: calm four notes
-        intArrayOf(659, 300, 587, 300, 523, 300, 392, 700),
-        // 5 door chime: ding-dong
-        intArrayOf(659, 450, 523, 900),
-        // 6 bird: a quick trill that ends high
-        intArrayOf(1760, 90, 2093, 90, 1760, 90, 2093, 90, 2349, 450),
-        // 7 harp: a rising run, slow
-        intArrayOf(392, 180, 494, 180, 587, 180, 784, 180, 988, 180, 1175, 600),
-        // 8 star: two sparkles and a long note
-        intArrayOf(1175, 160, 1568, 160, 2093, 700),
-        // 9 santur: repeated notes, then a step down
-        intArrayOf(587, 110, 587, 110, 587, 110, 880, 220, 659, 600),
+        intArrayOf(1568, 120, 2093, 120, 2637, 420),
+        intArrayOf(1760, 350),
+        intArrayOf(1319, 200, 1760, 400),
+        intArrayOf(988, 500),
+        intArrayOf(1568, 100, 1760, 100, 2093, 100, 2349, 350),
+        intArrayOf(880, 180, 1175, 420),
+        intArrayOf(1047, 130, 1319, 130, 1568, 130, 2093, 380),
+        intArrayOf(2093, 260),
+        intArrayOf(1175, 160, 988, 160, 1175, 400),
+        intArrayOf(2349, 90, 2637, 90, 3136, 380),
+        intArrayOf(523, 110, 659, 110, 784, 110, 1047, 380),
+        intArrayOf(784, 220, 988, 420),
+        intArrayOf(1397, 150, 1760, 450),
+        intArrayOf(659, 200, 880, 200, 1319, 420),
+        intArrayOf(523, 200, 784, 500),
+        intArrayOf(1175, 120, 1397, 120, 1175, 120, 1568, 380),
+        intArrayOf(1319, 100, 1568, 320),
+        intArrayOf(880, 260, 1109, 420),
+        intArrayOf(1047, 180, 880, 180, 1047, 480),
+        intArrayOf(2093, 110, 1760, 110, 2349, 400),
     )
 
     const val ACTION_AZAN = "app.myipwidget.AZAN_SOUND"
@@ -128,18 +130,45 @@ object Beeper {
             for (k in 0 until n) {
                 val t = k.toDouble() / rate
                 // a soft attack and a slow fade, a little third harmonic for a bell-like colour
-                val attack = minOf(1.0, k / (rate * 0.01))
-                val fade = Math.exp(-3.2 * k / n)
-                val wave = Math.sin(2 * Math.PI * freq * t) + 0.25 * Math.sin(2 * Math.PI * freq * 3 * t)
-                out.add((wave * attack * fade * 0.55 * 16000).toInt().toShort())
+                val attack = minOf(1.0, k / (rate * 0.015))
+                val fade = Math.exp(-4.5 * k / n)
+                val wave = Math.sin(2 * Math.PI * freq * t) + 0.12 * Math.sin(2 * Math.PI * freq * 3 * t)
+                out.add((wave * attack * fade * 0.4 * 16000).toInt().toShort())
             }
             i += 2
         }
         return out.toShortArray()
     }
 
+    /** The sound file picked from the phone; at most 15 seconds of it. */
+    private fun playFile(context: Context) {
+        try {
+            val uri = Prefs.beepCustomUri(context)
+            if (uri.isEmpty()) return
+            val player = MediaPlayer()
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+            )
+            player.setDataSource(context.applicationContext, Uri.parse(uri))
+            player.prepare()
+            player.start()
+            val end = System.currentTimeMillis() + 15000L
+            while (player.isPlaying && System.currentTimeMillis() < end) Thread.sleep(200)
+            player.release()
+        } catch (e: Exception) {
+            // the file is gone or cannot be played
+        }
+    }
+
     /** Plays one melody and waits until it ends. Runs on its own thread. */
-    fun play(sound: Int) {
+    fun play(context: Context, sound: Int) {
+        if (sound >= MELODIES.size) {
+            playFile(context)
+            return
+        }
         try {
             val data = synth(MELODIES[sound.coerceIn(0, MELODIES.size - 1)])
             val track = AudioTrack.Builder()
@@ -175,7 +204,7 @@ class BeepReceiver : BroadcastReceiver() {
         val app = context.applicationContext
         Thread {
             try {
-                Beeper.play(Prefs.beepSound(app))
+                Beeper.play(app, Prefs.beepSound(app))
             } finally {
                 Beeper.schedule(app)
                 pending.finish()
@@ -191,7 +220,7 @@ class AzanReceiver : BroadcastReceiver() {
         val app = context.applicationContext
         Thread {
             try {
-                if (key.isNotEmpty() && Prefs.azanSound(app, key)) Beeper.play(Prefs.beepSound(app))
+                if (key.isNotEmpty() && Prefs.azanSound(app, key)) Beeper.play(app, Prefs.beepSound(app))
             } finally {
                 Beeper.scheduleAzan(app)
                 pending.finish()

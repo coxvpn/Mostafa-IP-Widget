@@ -110,16 +110,26 @@
     <string name="beep_sound_title">صدای بیپ</string>
     <string name="beep_sound_button">صدا: %1$s</string>
     <string-array name="beep_sound_names">
-        <item>زنگوله</item>
-        <item>ملایم</item>
-        <item>قطره</item>
-        <item>ماریمبا</item>
-        <item>لالایی</item>
-        <item>زنگ در</item>
-        <item>پرنده</item>
-        <item>چنگ</item>
-        <item>ستاره</item>
-        <item>سنتور</item>
+        <item>بلور</item>
+        <item>قطره‌ی باران</item>
+        <item>زنگ آهسته</item>
+        <item>ناقوس نرم</item>
+        <item>چشمک</item>
+        <item>دو نت لطیف</item>
+        <item>جعبه‌موسیقی</item>
+        <item>شبنم</item>
+        <item>پر</item>
+        <item>جرقه</item>
+        <item>ضربه‌ی چنگ</item>
+        <item>نسیم</item>
+        <item>مروارید</item>
+        <item>نیلوفر</item>
+        <item>سپیده</item>
+        <item>نسیم ملایم</item>
+        <item>حباب</item>
+        <item>ابریشم</item>
+        <item>مهتاب</item>
+        <item>دانه‌برف</item>
     </string-array>
     <string name="use_gps">موقعیت فعلی (GPS)</string>
     <string name="gps_waiting">در حال پیدا کردن موقعیت شما…</string>
@@ -132,4 +142,9 @@
     <string name="azan_sound_help">سر وقت اذان، گوشی آهنگی را که بالا در «صدای بیپ» انتخاب کرده‌ای پخش می‌کند. وعده‌هایی را که می‌خواهی تیک بزن.</string>
     <string name="section_chart">مصرف ۷ روز اخیر</string>
     <string name="chart_legend">Wi-Fi آبی، SIM صورتی - جمع هفته %1$s</string>
+    <string name="settings_title">تنظیمات</string>
+    <string name="beep_times_open">ساعت‌های بیپ ▴</string>
+    <string name="beep_times_closed">ساعت‌های بیپ ▾</string>
+    <string name="sound_from_phone">انتخاب از گوشی…</string>
+    <string name="sound_custom">از گوشی: %1$s</string>
 </resources>

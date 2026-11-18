@@ -121,8 +121,8 @@ object Prefs {
         prefs(context).edit().putString("notice_order", saved.joinToString(",")).apply()
     }
 
-    /** Which of the beep melodies is chosen (0..4). */
-    fun beepSound(context: Context) = prefs(context).getInt("beep_sound", 0).coerceIn(0, 9)
+    /** Which of the beep melodies is chosen (0..19). */
+    fun beepSound(context: Context) = prefs(context).getInt("beep_sound", 0).coerceIn(0, 20)
 
     fun setBeepSound(context: Context, value: Int) {
         prefs(context).edit().putInt("beep_sound", value).apply()
@@ -139,6 +139,14 @@ object Prefs {
 
     fun setAzanSound(context: Context, key: String, value: Boolean) {
         prefs(context).edit().putBoolean("azan_sound_$key", value).apply()
+    }
+
+    /** A sound file picked from the phone (sound number 20). */
+    fun beepCustomUri(context: Context): String = prefs(context).getString("beep_custom_uri", "") ?: ""
+    fun beepCustomName(context: Context): String = prefs(context).getString("beep_custom_name", "") ?: ""
+
+    fun setBeepCustom(context: Context, uri: String, name: String) {
+        prefs(context).edit().putString("beep_custom_uri", uri).putString("beep_custom_name", name).apply()
     }
 
     fun setTheme(context: Context, value: Int) {

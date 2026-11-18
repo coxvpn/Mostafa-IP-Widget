@@ -112,16 +112,26 @@
     <string name="beep_sound_title">Beep sound</string>
     <string name="beep_sound_button">Sound: %1$s</string>
     <string-array name="beep_sound_names">
-        <item>Bell</item>
-        <item>Gentle</item>
-        <item>Drop</item>
-        <item>Marimba</item>
-        <item>Lullaby</item>
-        <item>Door chime</item>
-        <item>Bird</item>
-        <item>Harp</item>
-        <item>Star</item>
-        <item>Santur</item>
+        <item>Crystal</item>
+        <item>Raindrop</item>
+        <item>Soft chime</item>
+        <item>Soft bell</item>
+        <item>Twinkle</item>
+        <item>Gentle pair</item>
+        <item>Music box</item>
+        <item>Dew</item>
+        <item>Feather</item>
+        <item>Sparkle</item>
+        <item>Harp pluck</item>
+        <item>Breeze</item>
+        <item>Pearl</item>
+        <item>Lotus</item>
+        <item>Dawn</item>
+        <item>Zephyr</item>
+        <item>Bubble</item>
+        <item>Silk</item>
+        <item>Moonlight</item>
+        <item>Snowflake</item>
     </string-array>
     <string name="use_gps">Current location (GPS)</string>
     <string name="gps_waiting">Finding your position…</string>
@@ -134,4 +144,9 @@
     <string name="azan_sound_help">At the prayer time the phone plays the melody chosen above (Beep sound). Tick the calls you want.</string>
     <string name="section_chart">Data used in the last 7 days</string>
     <string name="chart_legend">Wi-Fi blue, SIM pink - total %1$s</string>
+    <string name="settings_title">Settings</string>
+    <string name="beep_times_open">Beep times ▴</string>
+    <string name="beep_times_closed">Beep times ▾</string>
+    <string name="sound_from_phone">Choose from the phone…</string>
+    <string name="sound_custom">From the phone: %1$s</string>
 </resources>

@@ -42,7 +42,8 @@ object PersianDate {
     fun short(now: Calendar = Calendar.getInstance()): String {
         val (_, month, day) = fromGregorian(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1, now.get(Calendar.DAY_OF_MONTH))
         val weekday = DAYS[now.get(Calendar.DAY_OF_WEEK) % 7]   // Saturday = 7 -> 0
-        return "$weekday ${digits(day)} ${MONTHS[month - 1]}"
+        // non-breaking spaces: the three words always stay on one line
+        return "$weekday\u00A0${digits(day)}\u00A0${MONTHS[month - 1]}"
     }
 
     private val EN_MONTHS = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")

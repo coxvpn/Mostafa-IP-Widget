@@ -11,8 +11,8 @@ android {
         applicationId = "app.myipwidget"
         minSdk = 26
         targetSdk = 34
-        versionCode = 23
-        versionName = "1.12.1"
+        versionCode = 30
+        versionName = "1.14.1"
     }
 
     // A fixed key, so each new version installs over the previous one

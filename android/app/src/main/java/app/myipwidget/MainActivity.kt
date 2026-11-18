@@ -174,6 +174,27 @@ class MainActivity : Activity() {
             noticeToggle.text = getString(if (open) R.string.notice_toggle_open else R.string.notice_toggle_closed)
         }
         buildBeepSlots()
+        val beepTimes = findViewById<View>(R.id.beep_container)
+        val beepToggle = findViewById<TextView>(R.id.beep_times_toggle)
+        beepToggle.text = getString(R.string.beep_times_closed)
+        beepToggle.setOnClickListener {
+            val open = beepTimes.visibility != View.VISIBLE
+            beepTimes.visibility = if (open) View.VISIBLE else View.GONE
+            beepToggle.text = getString(if (open) R.string.beep_times_open else R.string.beep_times_closed)
+        }
+        // the main page shows the data; the three lines at the top open and close the settings page
+        val dataPage = findViewById<View>(R.id.data_page)
+        val settingsPage = findViewById<View>(R.id.settings_page)
+        val menu = findViewById<TextView>(R.id.menu_button)
+        val title = findViewById<TextView>(R.id.page_title)
+        fun showSettings(on: Boolean) {
+            settingsPage.visibility = if (on) View.VISIBLE else View.GONE
+            dataPage.visibility = if (on) View.GONE else View.VISIBLE
+            menu.text = if (on) "\u2715" else "\u2630"
+            title.text = getString(if (on) R.string.settings_title else R.string.app_name)
+        }
+        menu.setOnClickListener { showSettings(settingsPage.visibility != View.VISIBLE) }
+        backToData = { if (settingsPage.visibility == View.VISIBLE) { showSettings(false); true } else false }
         val beepBody = findViewById<View>(R.id.beep_body)
         findViewById<CheckBox>(R.id.check_beep_enabled).apply {
             isChecked = Prefs.beepEnabled(this@MainActivity)
@@ -248,23 +269,62 @@ class MainActivity : Activity() {
         askUnrestrictedOnce()
     }
 
-    private fun soundName(index: Int): String = resources.getStringArray(R.array.beep_sound_names)[index]
+    private fun soundName(index: Int): String =
+        if (index >= 20) getString(R.string.sound_custom, Prefs.beepCustomName(this).ifEmpty { "-" })
+        else resources.getStringArray(R.array.beep_sound_names)[index]
 
     /** A list of short melodies; each one is played once when it is touched. */
+    private var soundButton: Button? = null
+
     private fun askSound(button: Button) {
+        soundButton = button
         var chosen = Prefs.beepSound(this)
+        val items = resources.getStringArray(R.array.beep_sound_names) + getString(R.string.sound_from_phone)
         AlertDialog.Builder(this)
             .setTitle(R.string.beep_sound_title)
-            .setSingleChoiceItems(resources.getStringArray(R.array.beep_sound_names), chosen) { _, which ->
-                chosen = which
-                Thread { Beeper.play(which) }.start()
+            .setSingleChoiceItems(items, chosen) { dialog, which ->
+                if (which >= 20) {
+                    // a sound file from the phone
+                    dialog.dismiss()
+                    val pick = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "audio/*"
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                    }
+                    try { startActivityForResult(pick, 7) } catch (e: Exception) { }
+                } else {
+                    chosen = which
+                    Thread { Beeper.play(applicationContext, which) }.start()
+                }
             }
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                Prefs.setBeepSound(this, chosen)
-                button.text = getString(R.string.beep_sound_button, soundName(chosen))
+                if (chosen < 20) {
+                    Prefs.setBeepSound(this, chosen)
+                    button.text = getString(R.string.beep_sound_button, soundName(chosen))
+                }
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != 7 || resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (e: Exception) { }
+        var name = uri.lastPathSegment ?: ""
+        try {
+            contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                if (it.moveToFirst()) name = it.getString(0) ?: name
+            }
+        } catch (e: Exception) { }
+        Prefs.setBeepCustom(this, uri.toString(), name)
+        Prefs.setBeepSound(this, 20)
+        soundButton?.text = getString(R.string.beep_sound_button, soundName(20))
+        Thread { Beeper.play(applicationContext, 20) }.start()
     }
 
     private fun languageName(code: String): String = if (code == "en") "English" else "فارسی"
@@ -416,6 +476,13 @@ class MainActivity : Activity() {
             .setPositiveButton(R.string.battery_allow) { _, _ -> requestUnrestricted() }
             .setNegativeButton(R.string.battery_later, null)
             .show()
+    }
+
+    private var backToData: () -> Boolean = { false }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (!backToData()) super.onBackPressed()
     }
 
     override fun onResume() {
