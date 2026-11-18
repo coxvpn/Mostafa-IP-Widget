@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Mostafa-IP-Widget</string>
+    <string name="app_name">Mostafa MultiWidget</string>
     <string name="widget_description">Shows your public IP address and country</string>
     <string name="checking">Checking...</string>
     <string name="no_internet">No Internet</string>
     <string name="unknown_location">Unknown location</string>
     <string name="refresh">Refresh now</string>
     <string name="copied">IP address copied</string>
-    <string name="hint">Tap the IP address to copy it.\nTo add the widget: long-press an empty spot on your home screen, choose Widgets, then Mostafa-IP-Widget.\nTap the widget to refresh it.</string>
+    <string name="hint">Tap the IP address to copy it.\nTo add the widget: long-press an empty spot on your home screen, choose Widgets, then Mostafa MultiWidget.\nTap the widget to refresh it.</string>
     <string name="widget_settings">Widget settings</string>
     <string name="show_weather">Show the temperature</string>
     <string name="show_usage">Show today\'s data usage</string>
@@ -22,7 +22,7 @@
     <string name="pick_city">Pick your city</string>
     <string name="grant_usage">Allow usage access (needed for data usage)</string>
     <string name="usage_today">Today: %1$s</string>
-    <string name="usage_no_access">Data usage needs \"usage access\" - tap the button below and allow Mostafa-IP-Widget.</string>
+    <string name="usage_no_access">Data usage needs \"usage access\" - tap the button below and allow Mostafa MultiWidget.</string>
     <string name="notice_channel">Live speed and flag</string>
     <string name="today_short">Today</string>
     <string name="show_speed_notice">Live speed (the number beside the clock)</string>
@@ -31,13 +31,13 @@
     <string name="show_date">Show today\'s date</string>
     <string name="about">About me and source code</string>
     <string name="source_code">Source code</string>
-    <string name="about_text">Mostafa-IP-Widget %1$s\n\nMade by Mostafa Mandegari.\nBased on the open-source project My-IP-Widget by B3H1Z.\n\nSource code:\n%2$s</string>
+    <string name="about_text">Mostafa MultiWidget %1$s\n\nMade by Mostafa Mandegari.\nSource code:\n%2$s</string>
     <string name="section_widget">Home-screen widget</string>
     <string name="section_notice">Notification bar (next to the clock)</string>
     <string name="section_about">About</string>
     <string name="add_widget">Add the widget to the home screen</string>
     <string name="widget_help">One tap, then confirm on the question the phone shows. You can resize the widget by long-pressing it.</string>
-    <string name="pin_unsupported">This phone cannot add it from here. Long-press the home screen, choose Widgets, then Mostafa-IP-Widget.</string>
+    <string name="pin_unsupported">This phone cannot add it from here. Long-press the home screen, choose Widgets, then Mostafa MultiWidget.</string>
     <string name="notice_help">Shows the live speed (and the country letters) as small icons beside the clock. The phone always lists such an icon in the pull-down panel too; use the last button to set it to silent or minimized there.</string>
     <string name="compact_notice">Compact: keep the panel entry as short as possible</string>
     <string name="notice_settings">Phone settings for this notification</string>
@@ -70,6 +70,16 @@
     <string name="section_notice_content">What the notification text holds</string>
     <string name="section_permissions">Permissions</string>
     <string name="no_city_for_azan">Choose a city to see the prayer times.</string>
+    <string name="widget_azan_full">🕌 مانده تا اذان %1$s</string>
+    <string name="layout_title">Widget layout</string>
+    <string name="layout_button">Widget layout: %1$s</string>
+    <string-array name="layout_names">
+        <item>طرح اصلی</item>
+        <item>طرح اول</item>
+        <item>طرح دوم</item>
+        <item>طرح سوم</item>
+        <item>طرح چهارم</item>
+    </string-array>
     <string name="theme_title">Widget background</string>
     <string name="theme_button">Background: %1$s</string>
     <string-array name="theme_names">
@@ -83,4 +93,35 @@
     <string name="azan_word">اذان</string>
     <string name="azan_left">مانده</string>
     <string name="notice_enabled">Show in the notification bar</string>
+    <string name="section_beep">Beep hourly</string>
+    <string name="beep_help">Set up to 5 times. On the days you tick, the phone beeps at that time.</string>
+    <string name="beep_slot">Beep %1$d</string>
+    <string name="notice_toggle_open">Choose what to show ▴</string>
+    <string name="notice_toggle_closed">Choose what to show ▾</string>
+    <string name="language_title">Language</string>
+    <string name="language_button">Language: %1$s</string>
+    <string-array name="day_short">
+        <item>Sat</item>
+        <item>Sun</item>
+        <item>Mon</item>
+        <item>Tue</item>
+        <item>Wed</item>
+        <item>Thu</item>
+        <item>Fri</item>
+    </string-array>
+    <string name="beep_sound_title">Beep sound</string>
+    <string name="beep_sound_button">Sound: %1$s</string>
+    <string-array name="beep_sound_names">
+        <item>Bell</item>
+        <item>Gentle</item>
+        <item>Drop</item>
+        <item>Marimba</item>
+        <item>Lullaby</item>
+    </string-array>
+    <string name="use_gps">Current location (GPS)</string>
+    <string name="gps_waiting">Finding your position…</string>
+    <string name="gps_off">Turn on the phone\'s location (GPS) first.</string>
+    <string name="gps_failed">The position could not be found. Try outdoors or search by name.</string>
+    <string name="gps_denied">Without the location permission the city cannot be found from GPS.</string>
+    <string name="my_location">My location</string>
 </resources>

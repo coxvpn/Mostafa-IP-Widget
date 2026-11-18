@@ -56,6 +56,78 @@ object Prefs {
     /** Background style of the widget: 0 follows the phone (light / dark), then dark, light, glass, blue, green. */
     fun theme(context: Context) = prefs(context).getInt("theme", 0).coerceIn(0, 5)
 
+    /** 0 = the original layout, 1..4 = the coloured tile layouts (first .. fourth). */
+    fun layout(context: Context) = prefs(context).getInt("layout", 4).coerceIn(0, 4)
+
+    fun setLayout(context: Context, value: Int) {
+        prefs(context).edit().putInt("layout", value).apply()
+    }
+
+    /** "fa" (default) or "en": the language of the app's own screens. */
+    fun language(context: Context): String = if (prefs(context).getString("language", "fa") == "en") "en" else "fa"
+
+    fun setLanguage(context: Context, value: String) {
+        prefs(context).edit().putString("language", value).apply()
+    }
+
+    /** The same context, with the language chosen in the app. */
+    fun localized(base: Context): Context {
+        val config = android.content.res.Configuration(base.resources.configuration)
+        val locale = java.util.Locale(language(base))
+        config.setLocale(locale)
+        config.setLayoutDirection(locale)
+        return base.createConfigurationContext(config)
+    }
+
+    // ---- beep: five times, each with its own days of the week (bit 0 = Sunday ... bit 6 = Saturday)
+    fun beepOn(context: Context, slot: Int) = prefs(context).getBoolean("beep_on_$slot", false)
+    fun beepHour(context: Context, slot: Int) = prefs(context).getInt("beep_h_$slot", 8)
+    fun beepMinute(context: Context, slot: Int) = prefs(context).getInt("beep_m_$slot", 0)
+    fun beepDays(context: Context, slot: Int) = prefs(context).getInt("beep_d_$slot", 0x7F)
+
+    fun setBeepOn(context: Context, slot: Int, value: Boolean) {
+        prefs(context).edit().putBoolean("beep_on_$slot", value).apply()
+    }
+
+    fun setBeepTime(context: Context, slot: Int, hour: Int, minute: Int) {
+        prefs(context).edit().putInt("beep_h_$slot", hour).putInt("beep_m_$slot", minute).apply()
+    }
+
+    fun setBeepDays(context: Context, slot: Int, mask: Int) {
+        prefs(context).edit().putInt("beep_d_$slot", mask).apply()
+    }
+
+    // ---- the order of the lines in the notification: the first one ticked stands first
+    private val NOTICE_KEYS = listOf("prayer", "temp", "rate", "usage")
+
+    private fun noticeKeyOn(context: Context, key: String) = when (key) {
+        "temp" -> noticeTemp(context)
+        "rate" -> noticeRate(context)
+        "usage" -> noticeUsage(context)
+        else -> noticePrayer(context)
+    }
+
+    /** The ticked lines, in the order they were ticked (older installs: azan, temperature, rate, usage). */
+    fun noticeOrder(context: Context): List<String> {
+        val saved = (prefs(context).getString("notice_order", "") ?: "").split(',').filter { it in NOTICE_KEYS }
+        val ordered = saved.distinct().filter { noticeKeyOn(context, it) }
+        return ordered + NOTICE_KEYS.filter { noticeKeyOn(context, it) && it !in ordered }
+    }
+
+    /** Call when a line is ticked (goes to the end of the order) or unticked (leaves it). */
+    fun touchNoticeOrder(context: Context, key: String, ticked: Boolean) {
+        val saved = (prefs(context).getString("notice_order", "") ?: "").split(',').filter { it in NOTICE_KEYS && it != key }.toMutableList()
+        if (ticked) saved.add(key)
+        prefs(context).edit().putString("notice_order", saved.joinToString(",")).apply()
+    }
+
+    /** Which of the beep melodies is chosen (0..4). */
+    fun beepSound(context: Context) = prefs(context).getInt("beep_sound", 0).coerceIn(0, 4)
+
+    fun setBeepSound(context: Context, value: Int) {
+        prefs(context).edit().putInt("beep_sound", value).apply()
+    }
+
     fun setTheme(context: Context, value: Int) {
         prefs(context).edit().putInt("theme", value).apply()
     }

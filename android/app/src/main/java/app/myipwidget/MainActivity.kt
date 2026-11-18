@@ -5,10 +5,21 @@ import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.app.AlertDialog
+import android.app.TimePickerDialog
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.widget.LinearLayout
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.location.Geocoder
+import android.os.Handler
+import android.os.Looper
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -43,6 +54,10 @@ class MainActivity : Activity() {
     private lateinit var dateNow: TextView
     private lateinit var checkFlagNotice: CheckBox
     private var currentIp: String = ""
+
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(Prefs.localized(base))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -108,6 +123,7 @@ class MainActivity : Activity() {
         findViewById<CheckBox>(R.id.check_notice_temp).apply {
             isChecked = Prefs.noticeTemp(this@MainActivity)
             setOnCheckedChangeListener { _, checked ->
+                Prefs.touchNoticeOrder(this@MainActivity, "temp", checked)
                 Prefs.setNoticeTemp(this@MainActivity, checked)
                 SpeedService.sync(this@MainActivity)
             }
@@ -115,6 +131,7 @@ class MainActivity : Activity() {
         findViewById<CheckBox>(R.id.check_notice_rate).apply {
             isChecked = Prefs.noticeRate(this@MainActivity)
             setOnCheckedChangeListener { _, checked ->
+                Prefs.touchNoticeOrder(this@MainActivity, "rate", checked)
                 Prefs.setNoticeRate(this@MainActivity, checked)
                 SpeedService.sync(this@MainActivity)
             }
@@ -122,6 +139,7 @@ class MainActivity : Activity() {
         findViewById<CheckBox>(R.id.check_notice_usage).apply {
             isChecked = Prefs.noticeUsage(this@MainActivity)
             setOnCheckedChangeListener { _, checked ->
+                Prefs.touchNoticeOrder(this@MainActivity, "usage", checked)
                 Prefs.setNoticeUsage(this@MainActivity, checked)
                 SpeedService.sync(this@MainActivity)
             }
@@ -129,6 +147,7 @@ class MainActivity : Activity() {
         findViewById<CheckBox>(R.id.check_notice_prayer).apply {
             isChecked = Prefs.noticePrayer(this@MainActivity)
             setOnCheckedChangeListener { _, checked ->
+                Prefs.touchNoticeOrder(this@MainActivity, "prayer", checked)
                 Prefs.setNoticePrayer(this@MainActivity, checked)
                 SpeedService.sync(this@MainActivity)
             }
@@ -136,6 +155,28 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.choose_theme).apply {
             text = getString(R.string.theme_button, themeName(Prefs.theme(this@MainActivity)))
             setOnClickListener { askTheme(this) }
+        }
+        findViewById<Button>(R.id.choose_layout).apply {
+            text = getString(R.string.layout_button, layoutName(Prefs.layout(this@MainActivity)))
+            setOnClickListener { askLayout(this) }
+        }
+        findViewById<Button>(R.id.choose_language).apply {
+            text = getString(R.string.language_button, languageName(Prefs.language(this@MainActivity)))
+            setOnClickListener { askLanguage() }
+        }
+        // the choices for the notification bar are under a drop-down
+        val noticeBody = findViewById<View>(R.id.notice_body)
+        val noticeToggle = findViewById<TextView>(R.id.notice_toggle)
+        noticeToggle.text = getString(R.string.notice_toggle_closed)
+        noticeToggle.setOnClickListener {
+            val open = noticeBody.visibility != View.VISIBLE
+            noticeBody.visibility = if (open) View.VISIBLE else View.GONE
+            noticeToggle.text = getString(if (open) R.string.notice_toggle_open else R.string.notice_toggle_closed)
+        }
+        buildBeepSlots()
+        findViewById<Button>(R.id.choose_beep_sound).apply {
+            text = getString(R.string.beep_sound_button, soundName(Prefs.beepSound(this@MainActivity)))
+            setOnClickListener { askSound(this) }
         }
         findViewById<Button>(R.id.about).setOnClickListener { showAbout() }
         findViewById<Button>(R.id.add_widget).setOnClickListener { addWidget() }
@@ -184,6 +225,128 @@ class MainActivity : Activity() {
         refresh()
         findViewById<Button>(R.id.battery).setOnClickListener { requestUnrestricted() }
         askUnrestrictedOnce()
+    }
+
+    private fun soundName(index: Int): String = resources.getStringArray(R.array.beep_sound_names)[index]
+
+    /** A list of short melodies; each one is played once when it is touched. */
+    private fun askSound(button: Button) {
+        var chosen = Prefs.beepSound(this)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.beep_sound_title)
+            .setSingleChoiceItems(resources.getStringArray(R.array.beep_sound_names), chosen) { _, which ->
+                chosen = which
+                Thread { Beeper.play(which) }.start()
+            }
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                Prefs.setBeepSound(this, chosen)
+                button.text = getString(R.string.beep_sound_button, soundName(chosen))
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun languageName(code: String): String = if (code == "en") "English" else "فارسی"
+
+    private fun askLanguage() {
+        val codes = arrayOf("fa", "en")
+        val current = codes.indexOf(Prefs.language(this)).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.language_title)
+            .setSingleChoiceItems(arrayOf("فارسی", "English"), current) { dialog, which ->
+                dialog.dismiss()
+                if (codes[which] != Prefs.language(this)) {
+                    Prefs.setLanguage(this, codes[which])
+                    recreate()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    /** Five beep times, each with an on switch, a time button and seven weekday chips (Saturday first). */
+    private fun buildBeepSlots() {
+        val box = findViewById<LinearLayout>(R.id.beep_container)
+        box.removeAllViews()
+        val dayNames = resources.getStringArray(R.array.day_short)
+        // Calendar-style bit (0 = Sunday ... 6 = Saturday) for the chips in the order Saturday .. Friday
+        val bits = intArrayOf(6, 0, 1, 2, 3, 4, 5)
+        for (slot in 0 until Beeper.SLOTS) {
+            val top = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val on = CheckBox(this).apply {
+                text = getString(R.string.beep_slot, slot + 1)
+                isChecked = Prefs.beepOn(this@MainActivity, slot)
+            }
+            val time = Button(this)
+            fun showTime() {
+                time.text = "%02d:%02d".format(java.util.Locale.US, Prefs.beepHour(this, slot), Prefs.beepMinute(this, slot))
+            }
+            showTime()
+            on.setOnCheckedChangeListener { _, checked ->
+                Prefs.setBeepOn(this, slot, checked)
+                Beeper.schedule(this)
+            }
+            time.setOnClickListener {
+                TimePickerDialog(this, { _, h, m ->
+                    Prefs.setBeepTime(this, slot, h, m)
+                    showTime()
+                    Beeper.schedule(this)
+                }, Prefs.beepHour(this, slot), Prefs.beepMinute(this, slot), true).show()
+            }
+            top.addView(on, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            top.addView(time)
+            box.addView(top, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10) })
+
+            val days = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            for (i in 0 until 7) {
+                val bit = 1 shl bits[i]
+                val chip = TextView(this).apply {
+                    text = dayNames[i]
+                    gravity = Gravity.CENTER
+                    textSize = 13f
+                    setPadding(0, dp(8), 0, dp(8))
+                }
+                fun paint() {
+                    val selected = Prefs.beepDays(this@MainActivity, slot) and bit != 0
+                    chip.background = GradientDrawable().apply {
+                        cornerRadius = dp(10).toFloat()
+                        setColor(if (selected) Color.parseColor("#3D6FE0") else Color.parseColor("#33888888"))
+                    }
+                    chip.setTextColor(if (selected) Color.WHITE else Color.GRAY)
+                }
+                paint()
+                chip.setOnClickListener {
+                    Prefs.setBeepDays(this, slot, Prefs.beepDays(this, slot) xor bit)
+                    paint()
+                    Beeper.schedule(this)
+                }
+                days.addView(chip, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginStart = dp(2); marginEnd = dp(2)
+                })
+            }
+            box.addView(days, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
+        }
+    }
+
+    private fun layoutName(index: Int): String = resources.getStringArray(R.array.layout_names)[index]
+
+    /** The five widget layouts: the original and the four coloured ones. The widget changes at once. */
+    private fun askLayout(button: Button) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.layout_title)
+            .setSingleChoiceItems(resources.getStringArray(R.array.layout_names), Prefs.layout(this)) { dialog, which ->
+                Prefs.setLayout(this, which)
+                button.text = getString(R.string.layout_button, layoutName(which))
+                IpWidget.redrawFromCache(applicationContext)
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun themeName(index: Int): String = resources.getStringArray(R.array.theme_names)[index]
@@ -263,6 +426,11 @@ class MainActivity : Activity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 6) {
+            if (grantResults.any { it == PackageManager.PERMISSION_GRANTED }) useGps()
+            else Toast.makeText(this, R.string.gps_denied, Toast.LENGTH_LONG).show()
+            return
+        }
         if (grantResults.firstOrNull() != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, R.string.notice_denied, Toast.LENGTH_LONG).show()
         }
@@ -404,13 +572,81 @@ class MainActivity : Activity() {
             .setTitle(R.string.choose_city)
             .setView(input)
             .setPositiveButton(R.string.search) { _, _ -> searchCity(input.text.toString()) }
-            .setNeutralButton(R.string.remove_city) { _, _ ->
+            .setNeutralButton(R.string.use_gps) { _, _ -> useGps() }
+            .setNegativeButton(R.string.remove_city) { _, _ ->
                 Prefs.clearCity(this)
                 showExtras()
                 updateExtras()
             }
-            .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    /** The city from the phone's own position (GPS or network); asks for the location permission first. */
+    @Suppress("DEPRECATION")
+    private fun useGps() {
+        if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION), 6)
+            return
+        }
+        val manager = getSystemService(LocationManager::class.java)
+        val providers = listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER).filter {
+            try { manager.isProviderEnabled(it) } catch (e: Exception) { false }
+        }
+        if (providers.isEmpty()) {
+            Toast.makeText(this, R.string.gps_off, Toast.LENGTH_LONG).show()
+            return
+        }
+        Toast.makeText(this, R.string.gps_waiting, Toast.LENGTH_LONG).show()
+        val handler = Handler(Looper.getMainLooper())
+        var done = false
+        lateinit var listener: LocationListener
+        fun finish(location: Location?) {
+            if (done) return
+            done = true
+            handler.removeCallbacksAndMessages(null)
+            try { manager.removeUpdates(listener) } catch (e: Exception) { }
+            if (location == null) Toast.makeText(this, R.string.gps_failed, Toast.LENGTH_LONG).show()
+            else gotLocation(location)
+        }
+        listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) = finish(location)
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderDisabled(provider: String) {}
+        }
+        try {
+            for (p in providers) manager.requestSingleUpdate(p, listener, Looper.getMainLooper())
+        } catch (e: Exception) {
+            finish(null)
+            return
+        }
+        // after 25 seconds, take the last position the phone knew
+        handler.postDelayed({
+            val last = try {
+                providers.mapNotNull { manager.getLastKnownLocation(it) }.maxByOrNull { it.time }
+            } catch (e: Exception) { null }
+            finish(last)
+        }, 25000L)
+    }
+
+    /** Looks for the city's name (needs the phone's map service); without it the city is just called "my location". */
+    private fun gotLocation(location: Location) {
+        Thread {
+            var name = ""
+            try {
+                if (Geocoder.isPresent()) {
+                    val found = Geocoder(this, java.util.Locale("fa")).getFromLocation(location.latitude, location.longitude, 1)
+                    val a = found?.firstOrNull()
+                    name = a?.locality ?: a?.subAdminArea ?: a?.adminArea ?: ""
+                }
+            } catch (e: Exception) {
+                // no map service: use the fixed name
+            }
+            if (name.isEmpty()) name = getString(R.string.my_location)
+            runOnUiThread {
+                if (!isFinishing) chooseCity(City(name, "", "", location.latitude, location.longitude))
+            }
+        }.start()
     }
 
     private fun searchCity(query: String) {

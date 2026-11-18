@@ -57,6 +57,7 @@ class IpWidget : AppWidgetProvider() {
             }
             Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 SpeedService.sync(context)
+                Beeper.schedule(context)
                 if (hasWidgets(context)) {
                     NetWatch.start(context)
                     val pending = goAsync()
@@ -72,6 +73,9 @@ class IpWidget : AppWidgetProvider() {
         const val ACTION_PRAYER = "app.myipwidget.PRAYER"
         private val AQI_BACKGROUNDS = intArrayOf(
             R.drawable.aqi_bg_0, R.drawable.aqi_bg_1, R.drawable.aqi_bg_2, R.drawable.aqi_bg_3, R.drawable.aqi_bg_4,
+        )
+        private val LAYOUTS = intArrayOf(
+            R.layout.widget, R.layout.widget_l1, R.layout.widget_l2, R.layout.widget_l3, R.layout.widget_l4,
         )
         private const val BUTTON_WEATHER_AGE_MS = 2 * 60 * 1000L
 
@@ -199,7 +203,9 @@ class IpWidget : AppWidgetProvider() {
             val ids = manager.getAppWidgetIds(ComponentName(context, IpWidget::class.java))
             if (ids.isEmpty()) return
 
-            val views = RemoteViews(context.packageName, R.layout.widget)
+            val layout = Prefs.layout(context)
+            val views = RemoteViews(context.packageName, LAYOUTS[layout])
+            val styled = layout != 0   // the coloured tile layouts have their own colours
             views.setTextViewText(R.id.flag, display.flag)
             views.setTextViewText(R.id.country, display.title)
             views.setTextViewText(R.id.ip, shortIp(display.ip))
@@ -215,8 +221,15 @@ class IpWidget : AppWidgetProvider() {
             val today = Usage.cached(context)
 
             // temperature, high / low, air quality
-            views.setViewVisibility(R.id.weather_box, if (showWeather) View.VISIBLE else View.INVISIBLE)
-            views.setTextViewText(R.id.weather, if (weather != null) Weather.format(weather) else "\u2026")
+            views.setViewVisibility(R.id.weather_box, if (showWeather) View.VISIBLE else if (styled) View.GONE else View.INVISIBLE)
+            if (styled) {
+                views.setTextViewText(R.id.sun, if (weather != null) Weather.symbol(weather.code) else "")
+                views.setTextViewText(R.id.weather, if (weather != null) Math.round(weather.temp).toString() + "\u00B0" else "\u2026")
+                val city = Prefs.cityName(context)
+                views.setTextViewText(R.id.city_label, if (city.isEmpty()) "" else "\u2068" + city + "\u2069")
+            } else {
+                views.setTextViewText(R.id.weather, if (weather != null) Weather.format(weather) else "\u2026")
+            }
             views.setViewVisibility(R.id.minmax, if (weather != null) View.VISIBLE else View.INVISIBLE)
             if (weather != null) {
                 views.setTextViewText(R.id.temp_high, Weather.high(weather))
@@ -244,7 +257,10 @@ class IpWidget : AppWidgetProvider() {
                 views.setViewVisibility(R.id.prayer_row, View.VISIBLE)
                 views.setTextViewText(
                     R.id.prayer_label,
-                    context.getString(R.string.widget_azan_prefix, context.getString(azan.nameRes)),
+                    context.getString(
+                        if (styled) R.string.widget_azan_full else R.string.widget_azan_prefix,
+                        context.getString(azan.nameRes),
+                    ),
                 )
                 views.setChronometerCountDown(R.id.prayer_time, true)
                 views.setChronometer(R.id.prayer_time, SystemClock.elapsedRealtime() + left, null, true)
@@ -253,21 +269,22 @@ class IpWidget : AppWidgetProvider() {
                 views.setViewVisibility(R.id.prayer_row, View.GONE)
             }
             // keep the space, so the button stays at the right edge
-            views.setViewVisibility(R.id.info, if (showDate || azan != null) View.VISIBLE else View.INVISIBLE)
+            views.setViewVisibility(R.id.info, if (showDate || azan != null) View.VISIBLE else if (styled) View.GONE else View.INVISIBLE)
 
             // bottom row: three cells, each with a small label and a big value
-            views.setTextViewText(R.id.lbl_rate, context.getString(R.string.widget_rate_label))
+            views.setTextViewText(R.id.lbl_rate, (if (styled) "\uD83D\uDCB5 " else "") + context.getString(R.string.widget_rate_label))
             views.setTextViewText(R.id.lbl_wifi, context.getString(R.string.widget_wifi_label))
             views.setTextViewText(R.id.lbl_sim, context.getString(R.string.widget_sim_label))
             views.setTextViewText(R.id.rate, Rate.format(Rate.cached(context)))
-            views.setTextViewText(R.id.wifi, Usage.wifiValue(context, today))
-            views.setTextViewText(R.id.sim, Usage.simValue(context, today))
+            views.setTextViewText(R.id.wifi, (if (styled) "\uD83D\uDCF6 " else "") + Usage.wifiValue(context, today))
+            views.setTextViewText(R.id.sim, (if (styled) "\uD83D\uDCF1 " else "") + Usage.simValue(context, today))
+            views.setViewVisibility(R.id.usage_box, if (showUsage) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.cell_rate, if (showRate) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.cell_wifi, if (showUsage) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.cell_sim, if (showUsage) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.extra, if (showRate || showUsage) View.VISIBLE else View.GONE)
 
-            applyTheme(context, views)
+            if (!styled) applyTheme(context, views)
 
             val refreshIntent = Intent(context, IpWidget::class.java).setAction(ACTION_REFRESH)
             val refreshPending = PendingIntent.getBroadcast(

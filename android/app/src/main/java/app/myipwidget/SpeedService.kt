@@ -32,6 +32,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  *    one-colour, so a coloured flag is not possible there); the text has the flag, country and IP.
  */
 class SpeedService : Service() {
+
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(Prefs.localized(base))
+    }
     private lateinit var thread: HandlerThread
     private lateinit var handler: Handler
     private val busy = AtomicBoolean(false)
@@ -236,11 +240,11 @@ class SpeedService : Service() {
     private val LRM = "\u200E"
     private val DOT = "  \u00B7  "
 
-    /** Weather, high / low, city: "14°C · ▲14° ▼7° · Karaj" (empty when off or unknown). */
+    /** Weather and city: "14°C · Karaj" (empty when off or unknown). */
     private fun tempPart(): String {
         if (!Prefs.noticeTemp(this) || !Prefs.hasCity(this)) return ""
         val weather = Weather.cached(this) ?: return ""
-        return LRM + Weather.format(weather) + DOT + Weather.range(weather) + DOT + FSI + Prefs.cityName(this) + PDI + LRM
+        return LRM + Weather.format(weather) + DOT + FSI + Prefs.cityName(this) + PDI + LRM
     }
 
     private fun ratePart(): String {
@@ -261,11 +265,12 @@ class SpeedService : Service() {
         val azan = Prayer.next(this) ?: return ""
         val left = Prayer.remainingText(azan.time - System.currentTimeMillis())
         val name = getString(azan.nameRes)
-        return if (long) {
+        val text = if (long) {
             "\uD83D\uDD4C " + getString(R.string.azan_word) + " " + name + " " + Prayer.clockText(azan.time) + DOT + left + " " + getString(R.string.azan_left)
         } else {
             "\uD83D\uDD4C " + name + " " + left + " " + getString(R.string.azan_left)
         }
+        return FSI + text + PDI
     }
 
     /**
@@ -275,11 +280,21 @@ class SpeedService : Service() {
     private fun buildMain(): Notification {
         val speedOn = Prefs.showSpeedNotice(this)
         val compact = Prefs.compactNotice(this)
-        val shortAzan = azanPart(false)
-        val longAzan = azanPart(true)
-        val temp = tempPart()
-        val rate = ratePart()
-        val usage = usagePart()
+        // the lines stand in the order they were ticked in the settings
+        val keys = Prefs.noticeOrder(this)
+        fun longOf(key: String): String = when (key) {
+            "temp" -> tempPart()
+            "rate" -> ratePart()
+            "usage" -> usagePart()
+            else -> azanPart(true)
+        }
+        fun shortOf(key: String): String = when (key) {
+            "usage" -> ""   // too long for the one-line text
+            "prayer" -> azanPart(false)
+            else -> longOf(key)
+        }
+        val longs = keys.map { it to longOf(it) }.filter { it.second.isNotEmpty() }
+        val shorts = keys.map { shortOf(it) }.filter { it.isNotEmpty() }
 
         val title: String
         val bigTitle: String
@@ -289,18 +304,20 @@ class SpeedService : Service() {
             // download and upload added together: one number
             title = "\u2193\u2191 " + Formatter.formatShortFileSize(this, (down + up).toLong()) + "/s"
             bigTitle = title
-            collapsedParts = listOf(shortAzan, temp, rate)
-            expandedLines = listOf(longAzan, temp, rate, usage)
-        } else if (shortAzan.isNotEmpty()) {
-            title = shortAzan
-            bigTitle = longAzan
-            collapsedParts = listOf(temp, rate)
-            expandedLines = listOf(temp, rate, usage)
+            collapsedParts = shorts
+            expandedLines = longs.map { it.second }
+        } else if (longs.isNotEmpty()) {
+            // no speed: the first line takes the title
+            val first = longs.first().first
+            title = shortOf(first).ifEmpty { longs.first().second }
+            bigTitle = longs.first().second
+            collapsedParts = shorts.drop(if (shortOf(first).isEmpty()) 0 else 1)
+            expandedLines = longs.drop(1).map { it.second }
         } else {
             title = getString(R.string.app_name)
             bigTitle = title
-            collapsedParts = listOf(temp, rate)
-            expandedLines = listOf(temp, rate, usage)
+            collapsedParts = emptyList()
+            expandedLines = emptyList()
         }
         val collapsed = collapsedParts.filter { it.isNotEmpty() }.joinToString(DOT)
         val expanded = expandedLines.filter { it.isNotEmpty() }.joinToString("\n")

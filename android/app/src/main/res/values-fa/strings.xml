@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Mostafa-IP-Widget</string>
+    <string name="app_name">Mostafa MultiWidget</string>
     <string name="widget_description">نمایش آی‌پی و کشور شما</string>
     <string name="checking">در حال بررسی...</string>
     <string name="no_internet">اینترنت وصل نیست</string>
@@ -31,13 +31,13 @@
     <string name="show_date">نمایش تاریخ امروز</string>
     <string name="about">درباره‌ی من و کد برنامه</string>
     <string name="source_code">کد برنامه</string>
-    <string name="about_text">Mostafa-IP-Widget %1$s\n\nساخته‌شده توسط مصطفی ماندگاری.\nبر پایه‌ی پروژه‌ی متن‌باز My-IP-Widget از B3H1Z.\n\nکد برنامه:\n%2$s</string>
+    <string name="about_text">Mostafa MultiWidget %1$s\n\nساخته‌شده توسط مصطفی ماندگاری.\nکد برنامه:\n%2$s</string>
     <string name="section_widget">ویجت صفحه‌ی اصلی</string>
     <string name="section_notice">نوار اعلان (کنار ساعت)</string>
     <string name="section_about">درباره</string>
     <string name="add_widget">افزودن ویجت به صفحه‌ی اصلی</string>
     <string name="widget_help">یک بار بزنید و پرسشی را که گوشی نشان می‌دهد تأیید کنید. با نگه داشتن روی ویجت می‌توانید اندازه‌اش را عوض کنید.</string>
-    <string name="pin_unsupported">این گوشی از اینجا نمی‌تواند اضافه کند. روی صفحه‌ی اصلی نگه دارید، «ویجت‌ها» و بعد «Mostafa-IP-Widget» را انتخاب کنید.</string>
+    <string name="pin_unsupported">این گوشی از اینجا نمی‌تواند اضافه کند. روی صفحه‌ی اصلی نگه دارید، «ویجت‌ها» و بعد «Mostafa MultiWidget» را انتخاب کنید.</string>
     <string name="notice_help">سرعت لحظه‌ای (و حروف کشور) را به‌صورت آیکون کوچک کنار ساعت نشان می‌دهد. گوشی همیشه یک ردیف هم برای آن در پنل بالا نگه می‌دارد؛ با دکمه‌ی آخر می‌توانید آن را بی‌صدا یا کوچک کنید.</string>
     <string name="compact_notice">فشرده: ردیف پنل بالا تا جای ممکن کوتاه باشد</string>
     <string name="notice_settings">تنظیمات گوشی برای این اعلان</string>
@@ -68,6 +68,16 @@
     <string name="section_notice_content">متن اعلان شامل چه چیزی باشد</string>
     <string name="section_permissions">دسترسی‌ها</string>
     <string name="no_city_for_azan">برای دیدن وقت اذان، یک شهر انتخاب کنید.</string>
+    <string name="widget_azan_full">🕌 مانده تا اذان %1$s</string>
+    <string name="layout_title">طرح ویجت</string>
+    <string name="layout_button">طرح ویجت: %1$s</string>
+    <string-array name="layout_names">
+        <item>طرح اصلی</item>
+        <item>طرح اول</item>
+        <item>طرح دوم</item>
+        <item>طرح سوم</item>
+        <item>طرح چهارم</item>
+    </string-array>
     <string name="theme_title">پس‌زمینه‌ی ویجت</string>
     <string name="theme_button">پس‌زمینه: %1$s</string>
     <string-array name="theme_names">
@@ -81,4 +91,35 @@
     <string name="azan_word">اذان</string>
     <string name="azan_left">مانده</string>
     <string name="notice_enabled">نمایش در نوار اعلان گوشی</string>
+    <string name="section_beep">بیپ ساعتی</string>
+    <string name="beep_help">تا ۵ ساعت تعیین کن. در روزهایی که تیک می‌زنی، همان ساعت گوشی بیپ می‌زند.</string>
+    <string name="beep_slot">بیپ %1$d</string>
+    <string name="notice_toggle_open">انتخاب اجزای نمایشی ▴</string>
+    <string name="notice_toggle_closed">انتخاب اجزای نمایشی ▾</string>
+    <string name="language_title">زبان</string>
+    <string name="language_button">زبان: %1$s</string>
+    <string-array name="day_short">
+        <item>ش</item>
+        <item>ی</item>
+        <item>د</item>
+        <item>س</item>
+        <item>چ</item>
+        <item>پ</item>
+        <item>ج</item>
+    </string-array>
+    <string name="beep_sound_title">صدای بیپ</string>
+    <string name="beep_sound_button">صدا: %1$s</string>
+    <string-array name="beep_sound_names">
+        <item>زنگوله</item>
+        <item>ملایم</item>
+        <item>قطره</item>
+        <item>ماریمبا</item>
+        <item>لالایی</item>
+    </string-array>
+    <string name="use_gps">موقعیت فعلی (GPS)</string>
+    <string name="gps_waiting">در حال پیدا کردن موقعیت شما…</string>
+    <string name="gps_off">اول موقعیت‌یاب (GPS) گوشی را روشن کنید.</string>
+    <string name="gps_failed">موقعیت پیدا نشد. بیرون از ساختمان امتحان کنید یا با نام شهر جستجو کنید.</string>
+    <string name="gps_denied">بدون اجازه‌ی موقعیت، شهر از روی GPS پیدا نمی‌شود.</string>
+    <string name="my_location">موقعیت من</string>
 </resources>
