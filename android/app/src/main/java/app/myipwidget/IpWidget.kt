@@ -77,7 +77,7 @@ class IpWidget : AppWidgetProvider() {
             R.drawable.aqi_bg_0, R.drawable.aqi_bg_1, R.drawable.aqi_bg_2, R.drawable.aqi_bg_3, R.drawable.aqi_bg_4, R.drawable.aqi_bg_5,
         )
         private val LAYOUTS = intArrayOf(
-            R.layout.widget, R.layout.widget_l1, R.layout.widget_l2, R.layout.widget_l3, R.layout.widget_l4,
+            R.layout.widget, R.layout.widget_l1, R.layout.widget_l2,
         )
         private const val BUTTON_WEATHER_AGE_MS = 2 * 60 * 1000L
 
@@ -97,7 +97,7 @@ class IpWidget : AppWidgetProvider() {
             return manager.getAppWidgetIds(ComponentName(context, IpWidget::class.java)).isNotEmpty()
         }
 
-        private fun describeCached(context: Context): Display {
+        fun describeCached(context: Context): Display {
             val cached = IpLookup.load(context)
             return if (cached != null) IpLookup.describe(context, cached) else IpLookup.checking(context)
         }
@@ -212,8 +212,11 @@ class IpWidget : AppWidgetProvider() {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, IpWidget::class.java))
             if (ids.isEmpty()) return
+            manager.updateAppWidget(ids, build(context, display, busy, Prefs.layout(context)))
+        }
 
-            val layout = Prefs.layout(context)
+        /** The widget's views in the given layout; also used for the preview inside the app. */
+        fun build(context: Context, display: Display, busy: Boolean, layout: Int): RemoteViews {
             val views = RemoteViews(context.packageName, LAYOUTS[layout])
             val styled = layout != 0   // the coloured tile layouts have their own colours
             views.setTextViewText(R.id.flag, display.flag)
@@ -326,7 +329,7 @@ class IpWidget : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.root, openPending)
 
-            manager.updateAppWidget(ids, views)
+            return views
         }
     }
 }

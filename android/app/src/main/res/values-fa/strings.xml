@@ -75,8 +75,6 @@
         <item>طرح اصلی</item>
         <item>طرح اول</item>
         <item>طرح دوم</item>
-        <item>طرح سوم</item>
-        <item>طرح چهارم</item>
     </string-array>
     <string name="theme_title">پس‌زمینه‌ی ویجت</string>
     <string name="theme_button">پس‌زمینه: %1$s</string>

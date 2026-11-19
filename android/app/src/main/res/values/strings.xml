@@ -77,8 +77,6 @@
         <item>طرح اصلی</item>
         <item>طرح اول</item>
         <item>طرح دوم</item>
-        <item>طرح سوم</item>
-        <item>طرح چهارم</item>
     </string-array>
     <string name="theme_title">Widget background</string>
     <string name="theme_button">Background: %1$s</string>

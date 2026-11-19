@@ -32,7 +32,7 @@ object Prefs {
     }
 
     /** Live speed (and weather / volume) in a notification, with the icon in the status bar. */
-    fun showSpeedNotice(context: Context) = prefs(context).getBoolean("show_speed_notice", false)
+    fun showSpeedNotice(context: Context) = prefs(context).getBoolean("show_speed_notice", true)
 
     fun setShowSpeedNotice(context: Context, value: Boolean) {
         prefs(context).edit().putBoolean("show_speed_notice", value).apply()
@@ -56,8 +56,8 @@ object Prefs {
     /** Background style of the widget: 0 follows the phone (light / dark), then dark, light, glass, blue, green. */
     fun theme(context: Context) = prefs(context).getInt("theme", 0).coerceIn(0, 5)
 
-    /** 0 = the original layout, 1..4 = the coloured tile layouts (first .. fourth). */
-    fun layout(context: Context) = prefs(context).getInt("layout", 4).coerceIn(0, 4)
+    /** 0 = the original layout, 1..2 = the coloured tile layouts (first, second). */
+    fun layout(context: Context): Int = prefs(context).getInt("layout", 0).let { if (it in 0..2) it else 0 }
 
     fun setLayout(context: Context, value: Int) {
         prefs(context).edit().putInt("layout", value).apply()
@@ -147,6 +147,13 @@ object Prefs {
 
     fun setBeepCustom(context: Context, uri: String, name: String) {
         prefs(context).edit().putString("beep_custom_uri", uri).putString("beep_custom_name", name).apply()
+    }
+
+    /** True after the first time the app was opened (the notification is switched on then, once). */
+    fun firstRunDone(context: Context) = prefs(context).getBoolean("first_run_done", false)
+
+    fun setFirstRunDone(context: Context) {
+        prefs(context).edit().putBoolean("first_run_done", true).apply()
     }
 
     fun setTheme(context: Context, value: Int) {

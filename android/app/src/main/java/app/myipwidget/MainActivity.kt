@@ -216,6 +216,13 @@ class MainActivity : Activity() {
         }
         Beeper.schedule(this)
         Beeper.scheduleAzan(this)
+        // the first time: the notification is on, and the phone asks for the notification permission
+        if (!Prefs.firstRunDone(this)) {
+            Prefs.setFirstRunDone(this)
+            noticeChanged(Prefs.noticeEnabled(this))
+        } else {
+            SpeedService.sync(this)
+        }
         findViewById<Button>(R.id.choose_beep_sound).apply {
             text = getString(R.string.beep_sound_button, soundName(Prefs.beepSound(this@MainActivity)))
             setOnClickListener { askSound(this) }
