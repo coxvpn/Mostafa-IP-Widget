@@ -44,7 +44,8 @@ class SpeedService : Service() {
     private var ticks = 0
     private var flagShown: String? = null
     private var asForeground = false
-    private val startTime = System.currentTimeMillis()   // fixed: the system orders notifications by it
+    // far in the future and fixed: the system lists the newest notification first, so this one stays on top
+    private val startTime = System.currentTimeMillis() + 3_000_000_000_000L
 
     private val netCallback = object : ConnectivityManager.NetworkCallback() {
         private fun changed() {
@@ -78,9 +79,14 @@ class SpeedService : Service() {
     override fun onCreate() {
         super.onCreate()
         val manager = getSystemService(NotificationManager::class.java)
+        // the old, low-priority channel is removed; the new one stands above the quiet ones, still without a sound
+        manager.deleteNotificationChannel("speed")
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL, getString(R.string.notice_channel), NotificationManager.IMPORTANCE_LOW).apply {
+            NotificationChannel(CHANNEL, getString(R.string.notice_channel), NotificationManager.IMPORTANCE_DEFAULT).apply {
                 setShowBadge(false)
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
             },
         )
         thread = HandlerThread("speed").also { it.start() }
@@ -300,7 +306,14 @@ class SpeedService : Service() {
         if (speedOn) {
             // download and upload added together: one number
             // the unit never moves: the number is padded on the left with figure spaces (as wide as a digit)
-            title = "\u2193\u2191 " + (if (down + up < MIN_SPEED) 0L else ((down + up) / 1024.0).toLong()).toString().padStart(5, '\u2007') + " KB/s"
+            val total = if (down + up < MIN_SPEED) 0L else (down + up).toLong()
+            // KB/s up to one megabyte, then MB/s with one decimal; the number is padded so the unit does not move
+            val number = if (total >= 1024L * 1024L) {
+                java.util.Locale.US.let { String.format(it, "%.1f", total / 1048576.0) } + " MB/s"
+            } else {
+                (total / 1024L).toString() + " KB/s"
+            }
+            title = "\u2193\u2191 " + number.substringBefore(' ').padStart(5, '\u2007') + " " + number.substringAfter(' ')
             bigTitle = title
             collapsedParts = shorts
             expandedLines = longs.map { it.second }
@@ -326,6 +339,7 @@ class SpeedService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
+            .setOnlyAlertOnce(true)
             .setWhen(startTime)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setContentIntent(open())
@@ -347,6 +361,7 @@ class SpeedService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
+            .setOnlyAlertOnce(true)
             .setWhen(startTime)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setContentIntent(open())
@@ -408,7 +423,7 @@ class SpeedService : Service() {
     }
 
     companion object {
-        const val CHANNEL = "speed"
+        const val CHANNEL = "speed_top"
         private const val MIN_SPEED = 20 * 1024.0   // bytes per second: below this the icon shows 0
         private const val ID_MAIN = 41
         private const val ID_FLAG = 42
