@@ -15,7 +15,7 @@
     <string name="no_city">No city chosen</string>
     <string name="city_hint">City name (Persian or English)</string>
     <string name="search">Search</string>
-    <string name="remove_city">Remove city</string>
+    <string name="remove_city">Back to Karaj</string>
     <string name="searching">Searching...</string>
     <string name="no_city_found">No city found. Try another spelling.</string>
     <string name="search_failed">Could not search. Check the internet connection.</string>
@@ -139,7 +139,7 @@
     <string name="my_location">My location</string>
     <string name="beep_enabled">Beep on</string>
     <string name="section_azan_sound">Prayer call sound</string>
-    <string name="azan_sound_help">At the prayer time the phone plays the melody chosen above (Beep sound). Tick the calls you want.</string>
+    <string name="azan_sound_help">At the prayer time the phone says "Allahu Akbar" (with the phone\'s own voice). Tick the calls you want.</string>
     <string name="section_chart">Data used in the last 7 days</string>
     <string name="chart_legend">Wi-Fi blue, SIM pink - total %1$s</string>
     <string name="settings_title">Settings</string>
@@ -147,4 +147,8 @@
     <string name="beep_times_closed">Beep times ▾</string>
     <string name="sound_from_phone">Choose from the phone…</string>
     <string name="sound_custom">From the phone: %1$s</string>
+    <string name="clock_title">Shown in the widget</string>
+    <string name="clock_button">IP line: %1$s</string>
+    <string name="clock_ip">IP address and flag</string>
+    <string name="clock_clock">Clock</string>
 </resources>

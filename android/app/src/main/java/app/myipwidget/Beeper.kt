@@ -9,6 +9,13 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.media.MediaPlayer
+import android.os.Handler
+import android.os.Looper
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import java.util.Locale
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import android.net.Uri
 import android.os.Build
 import java.util.Calendar
@@ -119,6 +126,40 @@ object Beeper {
         }
     }
 
+    /** Says "Allahu Akbar" with the phone's own voice (Arabic). False when the phone has no such voice. */
+    fun sayAllahuAkbar(context: Context): Boolean {
+        val latch = CountDownLatch(1)
+        var spoken = false
+        var tts: TextToSpeech? = null
+        Handler(Looper.getMainLooper()).post {
+            tts = TextToSpeech(context.applicationContext) { status ->
+                val engine = tts
+                if (status != TextToSpeech.SUCCESS || engine == null) {
+                    latch.countDown()
+                } else if (engine.setLanguage(Locale("ar")) < TextToSpeech.LANG_AVAILABLE) {
+                    latch.countDown()
+                } else {
+                    engine.setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build(),
+                    )
+                    engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?) {}
+                        override fun onDone(utteranceId: String?) { spoken = true; latch.countDown() }
+                        @Deprecated("Deprecated in Java")
+                        override fun onError(utteranceId: String?) { latch.countDown() }
+                    })
+                    engine.speak("الله أكبر، الله أكبر", TextToSpeech.QUEUE_FLUSH, null, "azan")
+                }
+            }
+        }
+        latch.await(12, TimeUnit.SECONDS)
+        Handler(Looper.getMainLooper()).post { try { tts?.shutdown() } catch (e: Exception) { } }
+        return spoken
+    }
+
     private fun synth(melody: IntArray): ShortArray {
         val rate = 22050
         val out = ArrayList<Short>()
@@ -220,7 +261,10 @@ class AzanReceiver : BroadcastReceiver() {
         val app = context.applicationContext
         Thread {
             try {
-                if (key.isNotEmpty() && Prefs.azanSound(app, key)) Beeper.play(app, Prefs.beepSound(app))
+                if (key.isNotEmpty() && Prefs.azanSound(app, key)) {
+                    // "Allahu Akbar"; if the phone cannot speak Arabic, the chosen melody instead
+                    if (!Beeper.sayAllahuAkbar(app)) Beeper.play(app, Prefs.beepSound(app))
+                }
             } finally {
                 Beeper.scheduleAzan(app)
                 pending.finish()

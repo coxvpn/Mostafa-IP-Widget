@@ -15,7 +15,7 @@
     <string name="no_city">شهری انتخاب نشده</string>
     <string name="city_hint">نام شهر (فارسی یا انگلیسی)</string>
     <string name="search">جستجو</string>
-    <string name="remove_city">حذف شهر</string>
+    <string name="remove_city">برگشت به کرج</string>
     <string name="searching">در حال جستجو...</string>
     <string name="no_city_found">شهری پیدا نشد. املای دیگری را امتحان کنید.</string>
     <string name="search_failed">جستجو انجام نشد. اتصال اینترنت را بررسی کنید.</string>
@@ -137,7 +137,7 @@
     <string name="my_location">موقعیت من</string>
     <string name="beep_enabled">بیپ روشن باشد</string>
     <string name="section_azan_sound">صدای اذان</string>
-    <string name="azan_sound_help">سر وقت اذان، گوشی آهنگی را که بالا در «صدای بیپ» انتخاب کرده‌ای پخش می‌کند. وعده‌هایی را که می‌خواهی تیک بزن.</string>
+    <string name="azan_sound_help">سر وقت اذان، گوشی «الله اکبر» می‌گوید (با صدای خود گوشی). وعده‌هایی را که می‌خواهی تیک بزن.</string>
     <string name="section_chart">مصرف ۷ روز اخیر</string>
     <string name="chart_legend">Wi-Fi آبی، SIM صورتی - جمع هفته %1$s</string>
     <string name="settings_title">تنظیمات</string>
@@ -145,4 +145,8 @@
     <string name="beep_times_closed">ساعت‌های بیپ ▾</string>
     <string name="sound_from_phone">انتخاب از گوشی…</string>
     <string name="sound_custom">از گوشی: %1$s</string>
+    <string name="clock_title">نمایش در ویجت</string>
+    <string name="clock_button">خط آی‌پی: %1$s</string>
+    <string name="clock_ip">آی‌پی و پرچم</string>
+    <string name="clock_clock">ساعت</string>
 </resources>

@@ -174,7 +174,7 @@ class IpWidget : AppWidgetProvider() {
         private fun applyTheme(context: Context, views: RemoteViews) {
             val look = look(Prefs.theme(context)) ?: return
             views.setInt(R.id.root, "setBackgroundResource", look.bg)
-            for (id in intArrayOf(R.id.weather, R.id.date, R.id.country, R.id.ip, R.id.wifi, R.id.sim, R.id.refresh)) {
+            for (id in intArrayOf(R.id.weather, R.id.date, R.id.country, R.id.ip, R.id.wifi, R.id.sim, R.id.refresh, R.id.clock)) {
                 views.setTextColor(id, look.text)
             }
             for (id in intArrayOf(R.id.date2, R.id.detail, R.id.lbl_wifi, R.id.lbl_sim)) views.setTextColor(id, look.dim)
@@ -219,6 +219,11 @@ class IpWidget : AppWidgetProvider() {
         fun build(context: Context, display: Display, busy: Boolean, layout: Int): RemoteViews {
             val views = RemoteViews(context.packageName, LAYOUTS[layout])
             val styled = layout != 0   // the coloured tile layouts have their own colours
+            val clock = Prefs.showClock(context)
+            for (id in intArrayOf(R.id.flag, R.id.country, R.id.ip, R.id.flag_row)) {
+                views.setViewVisibility(id, if (clock) View.GONE else View.VISIBLE)
+            }
+            views.setViewVisibility(R.id.clock, if (clock) View.VISIBLE else View.GONE)
             views.setTextViewText(R.id.flag, display.flag)
             views.setTextViewText(R.id.country, display.title)
             views.setTextViewText(R.id.ip, shortIp(display.ip))

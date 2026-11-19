@@ -1,8 +1,8 @@
 # UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 1, 0, 0),
-    prodvers=(1, 1, 0, 0),
+    filevers=(1, 1, 1, 0),
+    prodvers=(1, 1, 1, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -14,13 +14,13 @@ VSVersionInfo(
     StringFileInfo([
       StringTable('040904B0', [
         StringStruct('CompanyName', 'Mostafa Mandegari'),
-        StringStruct('FileDescription', 'Mostafa-IP-Widget - public IP, country and live network speed'),
-        StringStruct('FileVersion', '1.1.0'),
-        StringStruct('InternalName', 'Mostafa-IP-Widget'),
+        StringStruct('FileDescription', 'Mostafa-MultiWidget - public IP, country and live network speed'),
+        StringStruct('FileVersion', '1.1.1'),
+        StringStruct('InternalName', 'Mostafa-MultiWidget'),
         StringStruct('LegalCopyright', 'Copyright (c) Mostafa Mandegari'),
-        StringStruct('OriginalFilename', 'Mostafa-IP-Widget.exe'),
-        StringStruct('ProductName', 'Mostafa-IP-Widget'),
-        StringStruct('ProductVersion', '1.1.0')
+        StringStruct('OriginalFilename', 'Mostafa-MultiWidget.exe'),
+        StringStruct('ProductName', 'Mostafa-MultiWidget'),
+        StringStruct('ProductVersion', '1.1.1')
       ])
     ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])

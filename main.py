@@ -1,4 +1,4 @@
-"""Mostafa-IP-Widget - shows your public IP, country and provider from the tray icon.
+"""Mostafa-MultiWidget - shows your public IP, country and provider from the tray icon.
 
 By default nothing sits on the desktop: click the tray icon and a small pop-up
 appears next to the taskbar. "Keep on desktop" in the menu gives the old
@@ -1200,7 +1200,7 @@ class App:
             MenuItem("Quit", lambda icon, item: self.post("quit")),
         )
         try:
-            self.tray = pystray.Icon("Mostafa-IP-Widget", load_icon(GLOBE_ICON), APP_NAME, menu)
+            self.tray = pystray.Icon("Mostafa-MultiWidget", load_icon(GLOBE_ICON), APP_NAME, menu)
             self.tray.run_detached()
         except Exception:
             ipcore.log.exception("Could not start the tray icon")

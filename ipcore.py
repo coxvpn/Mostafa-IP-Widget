@@ -1,4 +1,4 @@
-"""Core (non-graphical) logic of Mostafa-IP-Widget.
+"""Core (non-graphical) logic of Mostafa-MultiWidget.
 
 Kept free of any tkinter / tray imports so it can be tested anywhere.
 """
@@ -17,16 +17,16 @@ from logging.handlers import RotatingFileHandler
 
 import requests
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __author__ = "Mostafa Mandegari"
 
-APP_NAME = "Mostafa-IP-Widget"
-LEGACY_STARTUP_NAMES = ("MyIP Widget",)  # older versions used this name in the Windows start-up list
+APP_NAME = "Mostafa MultiWidget"
+LEGACY_STARTUP_NAMES = ("MyIP Widget", "Mostafa-IP-Widget")  # older versions used this name in the Windows start-up list
 APP_DIR_NAME = "MyIPWidget"
 REQUEST_TIMEOUT = 6
 OFFLINE_AFTER_FAILURES = 2  # consecutive failed checks before showing "No Internet"
 
-HEADERS = {"User-Agent": f"Mostafa-IP-Widget/{__version__}"}
+HEADERS = {"User-Agent": f"Mostafa-MultiWidget/{__version__}", "Connection": "close"}  # no kept-open sockets
 
 log = logging.getLogger("myip")
 
@@ -336,9 +336,9 @@ class IPMonitor(threading.Thread):
 # --------------------------------------------------------------------------
 # About / updates
 # --------------------------------------------------------------------------
-REPO_URL = "https://github.com/coxvpn/Mostafa-IP-Widget"
+REPO_URL = "https://github.com/coxvpn/Mostafa-MultiWidget"
 RELEASES_PAGE = REPO_URL + "/releases/latest"
-RELEASES_API = "https://api.github.com/repos/coxvpn/Mostafa-IP-Widget/releases/latest"
+RELEASES_API = "https://api.github.com/repos/coxvpn/Mostafa-MultiWidget/releases/latest"
 
 
 def version_tuple(text):

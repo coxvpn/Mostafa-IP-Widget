@@ -98,7 +98,7 @@ object Prefs {
     }
 
     // ---- the order of the lines in the notification: the first one ticked stands first
-    private val NOTICE_KEYS = listOf("prayer", "temp", "rate", "usage")
+    private val NOTICE_KEYS = listOf("temp", "usage", "rate", "prayer")
 
     private fun noticeKeyOn(context: Context, key: String) = when (key) {
         "temp" -> noticeTemp(context)
@@ -156,6 +156,13 @@ object Prefs {
         prefs(context).edit().putBoolean("first_run_done", true).apply()
     }
 
+    /** The line with the IP address can show the clock instead. */
+    fun showClock(context: Context) = prefs(context).getBoolean("show_clock", false)
+
+    fun setShowClock(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("show_clock", value).apply()
+    }
+
     fun setTheme(context: Context, value: Int) {
         prefs(context).edit().putInt("theme", value).apply()
     }
@@ -211,11 +218,12 @@ object Prefs {
 
     fun anyNotice(context: Context) = noticeEnabled(context)
 
-    fun cityName(context: Context): String = prefs(context).getString("city_name", "") ?: ""
+    /** Karaj (Alborz) until another city is chosen. */
+    fun cityName(context: Context): String = prefs(context).getString("city_name", null) ?: "کرج"
 
-    fun cityLat(context: Context): Double? = prefs(context).getString("city_lat", null)?.toDoubleOrNull()
+    fun cityLat(context: Context): Double? = prefs(context).getString("city_lat", null)?.toDoubleOrNull() ?: 35.8327
 
-    fun cityLon(context: Context): Double? = prefs(context).getString("city_lon", null)?.toDoubleOrNull()
+    fun cityLon(context: Context): Double? = prefs(context).getString("city_lon", null)?.toDoubleOrNull() ?: 50.9916
 
     fun hasCity(context: Context) = cityLat(context) != null && cityLon(context) != null
 

@@ -35,7 +35,7 @@ import android.widget.Toast
 
 class MainActivity : Activity() {
     private companion object {
-        const val SOURCE_URL = "https://github.com/coxvpn/Mostafa-IP-Widget"
+        const val SOURCE_URL = "https://github.com/coxvpn/Mostafa-MultiWidget"
     }
 
     private lateinit var flagView: TextView
@@ -174,6 +174,22 @@ class MainActivity : Activity() {
             noticeToggle.text = getString(if (open) R.string.notice_toggle_open else R.string.notice_toggle_closed)
         }
         buildBeepSlots()
+        findViewById<Button>(R.id.choose_clock).apply {
+            text = getString(R.string.clock_button, getString(if (Prefs.showClock(this@MainActivity)) R.string.clock_clock else R.string.clock_ip))
+            setOnClickListener {
+                val items = arrayOf(getString(R.string.clock_ip), getString(R.string.clock_clock))
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(R.string.clock_title)
+                    .setSingleChoiceItems(items, if (Prefs.showClock(this@MainActivity)) 1 else 0) { dialog, which ->
+                        Prefs.setShowClock(this@MainActivity, which == 1)
+                        text = getString(R.string.clock_button, items[which])
+                        IpWidget.redrawFromCache(applicationContext)
+                        dialog.dismiss()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
+        }
         val beepTimes = findViewById<View>(R.id.beep_container)
         val beepToggle = findViewById<TextView>(R.id.beep_times_toggle)
         beepToggle.text = getString(R.string.beep_times_closed)
@@ -219,6 +235,8 @@ class MainActivity : Activity() {
         // the first time: the notification is on, and the phone asks for the notification permission
         if (!Prefs.firstRunDone(this)) {
             Prefs.setFirstRunDone(this)
+            Prefs.setNoticeEnabled(this, true)
+            Prefs.setShowSpeedNotice(this, true)
             noticeChanged(Prefs.noticeEnabled(this))
         } else {
             SpeedService.sync(this)

@@ -243,10 +243,12 @@ class SpeedService : Service() {
     private val DOT = "  \u00B7  "
 
     /** Weather and city: "14°C · Karaj" (empty when off or unknown). */
-    private fun tempPart(): String {
+    private fun tempPart(withAqi: Boolean): String {
         if (!Prefs.noticeTemp(this) || !Prefs.hasCity(this)) return ""
         val weather = Weather.cached(this) ?: return ""
-        return LRM + Weather.format(weather) + DOT + FSI + Prefs.cityName(this) + PDI + LRM +
+        return LRM + Weather.format(weather) +
+            (if (withAqi && weather.aqi > 0) DOT + "AQI " + weather.aqi else "") +
+            DOT + FSI + Prefs.cityName(this) + PDI + LRM +
             (Occasions.today()?.let { DOT + FSI + Occasions.label(it) + PDI } ?: "")
     }
 
@@ -286,7 +288,7 @@ class SpeedService : Service() {
         // the lines stand in the order they were ticked in the settings
         val keys = Prefs.noticeOrder(this)
         fun longOf(key: String): String = when (key) {
-            "temp" -> tempPart()
+            "temp" -> tempPart(true)
             "rate" -> ratePart()
             "usage" -> usagePart()
             else -> azanPart(true)
@@ -294,6 +296,7 @@ class SpeedService : Service() {
         fun shortOf(key: String): String = when (key) {
             "usage" -> ""   // too long for the one-line text
             "prayer" -> azanPart(false)
+            "temp" -> tempPart(false)
             else -> longOf(key)
         }
         val longs = keys.map { it to longOf(it) }.filter { it.second.isNotEmpty() }
