@@ -49,6 +49,10 @@ object Occasions {
         return null
     }
 
+    /** Only the little sign (the widget and the notification show just this). */
+    fun sign(o: Occasion): String = if (o.holiday) "🔴" else "🌙"
+
     /** The text with its little sign, for the widget and the notification. */
-    fun label(o: Occasion): String = (if (o.holiday) "🔴 " else "🌙 ") + o.text
+    fun label(o: Occasion): String =
+        if (o.holiday) "🔴 " + o.text + (if (o.text.contains("تعطیل")) "" else " (تعطیل)") else "🌙 " + o.text
 }

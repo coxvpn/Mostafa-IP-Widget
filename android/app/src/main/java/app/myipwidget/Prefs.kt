@@ -98,10 +98,11 @@ object Prefs {
     }
 
     // ---- the order of the lines in the notification: the first one ticked stands first
-    private val NOTICE_KEYS = listOf("temp", "usage", "rate", "prayer")
+    private val NOTICE_KEYS = listOf("temp", "date", "prayer", "usage", "rate")
 
     private fun noticeKeyOn(context: Context, key: String) = when (key) {
         "temp" -> noticeTemp(context)
+        "date" -> noticeDate(context)
         "rate" -> noticeRate(context)
         "usage" -> noticeUsage(context)
         else -> noticePrayer(context)
@@ -109,9 +110,8 @@ object Prefs {
 
     /** The ticked lines, in the order they were ticked (older installs: azan, temperature, rate, usage). */
     fun noticeOrder(context: Context): List<String> {
-        val saved = (prefs(context).getString("notice_order", "") ?: "").split(',').filter { it in NOTICE_KEYS }
-        val ordered = saved.distinct().filter { noticeKeyOn(context, it) }
-        return ordered + NOTICE_KEYS.filter { noticeKeyOn(context, it) && it !in ordered }
+        // fixed order: temperature, prayer call, data usage, dollar rate
+        return NOTICE_KEYS.filter { noticeKeyOn(context, it) }
     }
 
     /** Call when a line is ticked (goes to the end of the order) or unticked (leaves it). */
@@ -185,6 +185,12 @@ object Prefs {
 
     fun setNoticeTemp(context: Context, value: Boolean) {
         prefs(context).edit().putBoolean("notice_temp", value).apply()
+    }
+
+    fun noticeDate(context: Context) = prefs(context).getBoolean("notice_date", true)
+
+    fun setNoticeDate(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean("notice_date", value).apply()
     }
 
     fun noticeRate(context: Context) = prefs(context).getBoolean("notice_rate", true)

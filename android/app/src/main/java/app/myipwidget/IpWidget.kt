@@ -299,7 +299,7 @@ class IpWidget : AppWidgetProvider() {
             val occasion = if (showDate) Occasions.today() else null
             if (occasion != null) {
                 views.setViewVisibility(R.id.occasion, View.VISIBLE)
-                views.setTextViewText(R.id.occasion, Occasions.label(occasion))
+                views.setTextViewText(R.id.occasion, Occasions.sign(occasion))
                 views.setInt(R.id.occasion, "setBackgroundResource", if (occasion.holiday) R.drawable.chip_red else R.drawable.chip_purple)
             } else {
                 views.setViewVisibility(R.id.occasion, View.GONE)

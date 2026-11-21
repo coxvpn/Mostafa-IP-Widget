@@ -79,10 +79,11 @@ class SpeedService : Service() {
     override fun onCreate() {
         super.onCreate()
         val manager = getSystemService(NotificationManager::class.java)
-        // the old, low-priority channel is removed; the new one stands above the quiet ones, still without a sound
+        // the old, low-priority channel is removed; the new one has a high importance (stands above the others), still without a sound or vibration
         manager.deleteNotificationChannel("speed")
+        manager.deleteNotificationChannel("speed_top")
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL, getString(R.string.notice_channel), NotificationManager.IMPORTANCE_DEFAULT).apply {
+            NotificationChannel(CHANNEL, getString(R.string.notice_channel), NotificationManager.IMPORTANCE_HIGH).apply {
                 setShowBadge(false)
                 setSound(null, null)
                 enableVibration(false)
@@ -170,6 +171,7 @@ class SpeedService : Service() {
             val factor = if (vpnActive()) 0.5 else 1.0
             down = maxOf(0L, rx - lastRx) / seconds * factor
             up = maxOf(0L, tx - lastTx) / seconds * factor
+            lastSpeed = down + up
         }
         lastRx = rx
         lastTx = tx
@@ -195,7 +197,7 @@ class SpeedService : Service() {
 
     // ------------------------------------------------------------------ showing
     /** True when the main notification has something to show: the speed, or any of the extra lines. */
-    private fun hasMain(): Boolean = Prefs.showSpeedNotice(this) || Prefs.noticeTemp(this) || Prefs.noticeRate(this) ||
+    private fun hasMain(): Boolean = Prefs.showSpeedNotice(this) || Prefs.noticeTemp(this) || Prefs.noticeDate(this) || Prefs.noticeRate(this) ||
         Prefs.noticeUsage(this) || Prefs.noticePrayer(this)
 
     private fun render() {
@@ -249,7 +251,12 @@ class SpeedService : Service() {
         return LRM + Weather.format(weather) +
             (if (withAqi && weather.aqi > 0) DOT + "AQI " + weather.aqi else "") +
             DOT + FSI + Prefs.cityName(this) + PDI + LRM +
-            (Occasions.today()?.let { DOT + FSI + Occasions.label(it) + PDI } ?: "")
+            (if (withAqi) (Occasions.today()?.let { DOT + FSI + Occasions.sign(it) + PDI } ?: "") else "")
+    }
+
+    private fun datePart(): String {
+        if (!Prefs.noticeDate(this)) return ""
+        return PersianDate.full() + (Occasions.today()?.let { DOT + FSI + Occasions.sign(it) + PDI } ?: "")
     }
 
     private fun ratePart(): String {
@@ -291,10 +298,11 @@ class SpeedService : Service() {
             "temp" -> tempPart(true)
             "rate" -> ratePart()
             "usage" -> usagePart()
+            "date" -> datePart()
             else -> azanPart(true)
         }
         fun shortOf(key: String): String = when (key) {
-            "usage" -> ""   // too long for the one-line text
+            "usage", "date" -> ""   // too long for the one-line text
             "prayer" -> azanPart(false)
             "temp" -> tempPart(false)
             else -> longOf(key)
@@ -384,7 +392,7 @@ class SpeedService : Service() {
         val kb = if (bytesPerSecond < MIN_SPEED) 0.0 else bytesPerSecond / 1024.0
         val number: String
         val unit: String
-        if (kb < 1000) {
+        if (kb < 1024.0) {
             number = if (kb in 0.1..9.99) "%.1f".format(java.util.Locale.US, kb) else kb.toInt().toString()
             unit = "K"
         } else {
@@ -426,7 +434,10 @@ class SpeedService : Service() {
     }
 
     companion object {
-        const val CHANNEL = "speed_top"
+        /** The latest speed (download plus upload, bytes per second); the quick-settings tile reads it. */
+        @Volatile var lastSpeed = 0.0
+
+        const val CHANNEL = "speed_high"
         private const val MIN_SPEED = 20 * 1024.0   // bytes per second: below this the icon shows 0
         private const val ID_MAIN = 41
         private const val ID_FLAG = 42

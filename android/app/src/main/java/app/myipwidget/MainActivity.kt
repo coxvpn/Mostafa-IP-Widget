@@ -128,6 +128,14 @@ class MainActivity : Activity() {
                 SpeedService.sync(this@MainActivity)
             }
         }
+        findViewById<CheckBox>(R.id.check_notice_date).apply {
+            isChecked = Prefs.noticeDate(this@MainActivity)
+            setOnCheckedChangeListener { _, checked ->
+                Prefs.touchNoticeOrder(this@MainActivity, "date", checked)
+                Prefs.setNoticeDate(this@MainActivity, checked)
+                SpeedService.sync(this@MainActivity)
+            }
+        }
         findViewById<CheckBox>(R.id.check_notice_rate).apply {
             isChecked = Prefs.noticeRate(this@MainActivity)
             setOnCheckedChangeListener { _, checked ->
@@ -167,13 +175,17 @@ class MainActivity : Activity() {
         // the choices for the notification bar are under a drop-down
         val noticeBody = findViewById<View>(R.id.notice_body)
         val noticeToggle = findViewById<TextView>(R.id.notice_toggle)
-        noticeToggle.text = getString(R.string.notice_toggle_closed)
+        // the choices stand open by default
+        noticeBody.visibility = View.VISIBLE
+        noticeToggle.text = getString(R.string.notice_toggle_open)
         noticeToggle.setOnClickListener {
             val open = noticeBody.visibility != View.VISIBLE
             noticeBody.visibility = if (open) View.VISIBLE else View.GONE
             noticeToggle.text = getString(if (open) R.string.notice_toggle_open else R.string.notice_toggle_closed)
         }
+        findViewById<Button>(R.id.check_update).setOnClickListener { checkUpdate() }
         buildBeepSlots()
+        colorizeCards()
         findViewById<Button>(R.id.choose_clock).apply {
             text = getString(R.string.clock_button, getString(if (Prefs.showClock(this@MainActivity)) R.string.clock_clock else R.string.clock_ip))
             setOnClickListener {
@@ -238,6 +250,7 @@ class MainActivity : Activity() {
             Prefs.setNoticeEnabled(this, true)
             Prefs.setShowSpeedNotice(this, true)
             noticeChanged(Prefs.noticeEnabled(this))
+            askCityFirstTime()
         } else {
             SpeedService.sync(this)
         }
@@ -550,7 +563,7 @@ class MainActivity : Activity() {
     private fun noticeDependants(enabled: Boolean) {
         for (id in intArrayOf(
             R.id.check_speed_notice, R.id.check_flag_notice, R.id.check_compact, R.id.check_notice_temp,
-            R.id.check_notice_rate, R.id.check_notice_usage, R.id.check_notice_prayer,
+            R.id.check_notice_date, R.id.check_notice_rate, R.id.check_notice_usage, R.id.check_notice_prayer,
         )) {
             findViewById<View>(id).isEnabled = enabled
         }
@@ -644,6 +657,16 @@ class MainActivity : Activity() {
         rateView.text = getString(R.string.rate_line, Rate.format(Rate.cached(this)))
         rateView.visibility = if (Prefs.showRate(this)) View.VISIBLE else View.GONE
         dateNow.text = PersianDate.full()
+        val occasion = Occasions.today()
+        findViewById<TextView>(R.id.occasion_bar).apply {
+            if (occasion == null) {
+                visibility = View.GONE
+            } else {
+                visibility = View.VISIBLE
+                text = Occasions.label(occasion)
+                setBackgroundResource(if (occasion.holiday) R.drawable.chip_red else R.drawable.chip_purple)
+            }
+        }
         dateNow.visibility = if (Prefs.showDate(this)) View.VISIBLE else View.GONE
         val weather = Weather.cached(this)
         weatherNow.text = if (Prefs.hasCity(this) && weather != null) {
@@ -706,6 +729,20 @@ class MainActivity : Activity() {
     }
 
     // ---------------------------------------------------------------- the city
+    /** The first time: say that the city can be chosen, then offer to put the widget on the home screen. */
+    private var pinAfterCity = false
+
+    private fun askCityFirstTime() {
+        var chose = false
+        AlertDialog.Builder(this)
+            .setTitle(R.string.city_first_title)
+            .setMessage(R.string.city_first_message)
+            .setPositiveButton(R.string.choose_city) { _, _ -> chose = true; pinAfterCity = true; askCity() }
+            .setNegativeButton(R.string.city_first_keep, null)
+            .setOnDismissListener { if (!chose) addWidget() }
+            .show()
+    }
+
     private fun askCity() {
         val input = EditText(this)
         input.hint = getString(R.string.city_hint)
@@ -715,11 +752,6 @@ class MainActivity : Activity() {
             .setView(input)
             .setPositiveButton(R.string.search) { _, _ -> searchCity(input.text.toString()) }
             .setNeutralButton(R.string.use_gps) { _, _ -> useGps() }
-            .setNegativeButton(R.string.remove_city) { _, _ ->
-                Prefs.clearCity(this)
-                showExtras()
-                updateExtras()
-            }
             .show()
     }
 
@@ -802,6 +834,25 @@ class MainActivity : Activity() {
                     // offline: the fixed name below
                 }
             }
+            if (name.isEmpty()) {
+                // a second map service
+                try {
+                    val url = "https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=fa&latitude=" +
+                        location.latitude + "&longitude=" + location.longitude
+                    val body = IpLookup.httpGet(url, 20000)
+                    if (body != null) {
+                        val o = org.json.JSONObject(body)
+                        for (key in arrayOf("city", "locality", "principalSubdivision")) {
+                            val v = o.optString(key, "")
+                            if (v.isNotEmpty()) { name = v; break }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // offline
+                }
+            }
+            // no internet service answered: the closest known city, from the list inside the app
+            if (name.isEmpty()) name = NearCity.name(location.latitude, location.longitude)
             if (name.isEmpty()) name = getString(R.string.my_location)
             runOnUiThread {
                 if (!isFinishing) chooseCity(City(name, "", "", location.latitude, location.longitude))
@@ -841,6 +892,10 @@ class MainActivity : Activity() {
         checkWeather.isChecked = true
         showExtras()
         updateExtras(0L)
+        if (pinAfterCity) {
+            pinAfterCity = false
+            addWidget()
+        }
     }
 
     private fun copyIp() {
@@ -848,5 +903,81 @@ class MainActivity : Activity() {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("IP", currentIp))
         Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show()
+    }
+
+    /** Every card of the two pages has its own colour: tinted frame (set in the layout), title, check boxes and buttons. */
+    private fun colorizeCards() {
+        val colours = intArrayOf(
+            0xFF3D6FE0.toInt(), 0xFF2E9E6B.toInt(), 0xFFF08A1C.toInt(), 0xFF8E54E9.toInt(),
+            0xFFE0508F.toInt(), 0xFF1BA3B8.toInt(), 0xFFC99A00.toInt(), 0xFFE05A3A.toInt(),
+        )
+        val cards = ArrayList<View>()
+        for (pageId in intArrayOf(R.id.data_page, R.id.settings_page)) {
+            val column = (findViewById<android.view.ViewGroup>(pageId)).getChildAt(0) as? android.view.ViewGroup ?: continue
+            for (i in 0 until column.childCount) cards.add(column.getChildAt(i))
+        }
+        cards.forEachIndexed { index, card ->
+            val colour = colours[index % colours.size]
+            val tint = android.content.res.ColorStateList.valueOf(colour)
+            fun paint(view: View) {
+                when (view) {
+                    is CheckBox -> view.buttonTintList = tint
+                    is Button -> { view.backgroundTintList = tint; view.setTextColor(0xFFFFFFFF.toInt()) }
+                    is android.view.ViewGroup -> for (i in 0 until view.childCount) paint(view.getChildAt(i))
+                }
+            }
+            paint(card)
+        }
+    }
+
+    // ---------------------------------------------------------------- update check
+    /** Asks GitHub for the latest release and says whether a newer version exists; the download page opens on request. */
+    private fun checkUpdate() {
+        Toast.makeText(this, R.string.update_checking, Toast.LENGTH_SHORT).show()
+        Thread {
+            var tag = ""
+            var page = ""
+            try {
+                val body = IpLookup.httpGet("https://api.github.com/repos/coxvpn/Mostafa-MultiWidget/releases/latest", 400000)
+                if (body != null) {
+                    val o = org.json.JSONObject(body)
+                    tag = o.optString("tag_name", "")
+                    page = o.optString("html_url", "")
+                }
+            } catch (e: Exception) {
+                // no answer
+            }
+            runOnUiThread {
+                if (isFinishing) return@runOnUiThread
+                val mine = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "" } catch (e: Exception) { "" }
+                if (tag.isEmpty()) {
+                    Toast.makeText(this, R.string.update_failed, Toast.LENGTH_LONG).show()
+                } else if (versionNewer(tag, mine)) {
+                    AlertDialog.Builder(this)
+                        .setTitle(R.string.update_title)
+                        .setMessage(getString(R.string.update_found, tag.trimStart('v', 'V'), mine))
+                        .setPositiveButton(R.string.update_open) { _, _ ->
+                            val url = if (page.isNotEmpty()) page else SOURCE_URL + "/releases/latest"
+                            try { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) } catch (e: Exception) { }
+                        }
+                        .setNegativeButton(R.string.update_later, null)
+                        .show()
+                } else {
+                    Toast.makeText(this, getString(R.string.update_none, mine), Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
+    /** True when version [a] (like "v1.19.0") is higher than [b] (like "1.18.18"). */
+    private fun versionNewer(a: String, b: String): Boolean {
+        val x = a.trimStart('v', 'V').split('.').map { it.filter(Char::isDigit).toIntOrNull() ?: 0 }
+        val y = b.trimStart('v', 'V').split('.').map { it.filter(Char::isDigit).toIntOrNull() ?: 0 }
+        for (i in 0 until maxOf(x.size, y.size)) {
+            val p = x.getOrElse(i) { 0 }
+            val q = y.getOrElse(i) { 0 }
+            if (p != q) return p > q
+        }
+        return false
     }
 }

@@ -149,4 +149,17 @@
     <string name="clock_button">خط آی‌پی: %1$s</string>
     <string name="clock_ip">آی‌پی و پرچم</string>
     <string name="clock_clock">ساعت</string>
+    <string name="city_first_title">شهر شما کجاست؟</string>
+    <string name="city_first_message">دما، آلودگی هوا و وقت اذان از روی شهر شما می‌آید. فعلاً کرج است؛ همین‌جا یا بعداً از تنظیمات می‌توانید شهر دیگری انتخاب کنید.</string>
+    <string name="city_first_keep">همان کرج بماند</string>
+    <string name="show_notice_date">تاریخ امروز</string>
+    <string name="launcher_name" translatable="false">MultiWidget</string>
+    <string name="update_check">بررسی به‌روزرسانی</string>
+    <string name="update_checking">در حال بررسی…</string>
+    <string name="update_failed">بررسی نشد. اینترنت را بررسی کنید (اگر گیت‌هاب بسته است، فیلترشکن را روشن کنید).</string>
+    <string name="update_title">نسخه‌ی تازه آمده</string>
+    <string name="update_found">نسخه‌ی %1$s آمده است (نسخه‌ی شما %2$s). صفحه‌ی دانلود باز شود؟</string>
+    <string name="update_open">باز کردن صفحه‌ی دانلود</string>
+    <string name="update_later">بعداً</string>
+    <string name="update_none">نسخه‌ی شما آخرین نسخه است (%1$s).</string>
 </resources>

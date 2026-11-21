@@ -151,4 +151,17 @@
     <string name="clock_button">IP line: %1$s</string>
     <string name="clock_ip">IP address and flag</string>
     <string name="clock_clock">Clock</string>
+    <string name="city_first_title">Which city are you in?</string>
+    <string name="city_first_message">The temperature, the air quality and the prayer times come from your city. It is Karaj for now; you can choose another city here or later in the settings.</string>
+    <string name="city_first_keep">Keep Karaj</string>
+    <string name="show_notice_date">Date</string>
+    <string name="launcher_name" translatable="false">MultiWidget</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_failed">Could not check. Check the internet (turn on the VPN if GitHub is blocked).</string>
+    <string name="update_title">Update available</string>
+    <string name="update_found">Version %1$s is out (you have %2$s). Open the download page?</string>
+    <string name="update_open">Open download page</string>
+    <string name="update_later">Later</string>
+    <string name="update_none">You have the latest version (%1$s).</string>
 </resources>
